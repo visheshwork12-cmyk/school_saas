@@ -1,7 +1,7 @@
 // src/shared/middleware/auth/jwt.middleware.js
 
 import passport from 'passport';
-import { catchAsync } from '#utils/core/catchAsync.js';
+import catchAsync from '#utils/core/catchAsync.js';
 import { AuthenticationException } from '#exceptions/authentication.exception.js';
 import { logger } from '#utils/core/logger.js';
 

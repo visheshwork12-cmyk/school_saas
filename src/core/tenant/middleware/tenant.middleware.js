@@ -6,7 +6,7 @@ import baseConfig from '#shared/config/environments/base.config.js';
 import { AuditService } from '#core/audit/services/audit-log.service.js';
 import { BusinessException } from '#shared/exceptions/business.exception.js';
 import HTTP_STATUS from '#constants/http-status.js';
-import { catchAsync } from '#utils/core/catchAsync.js';
+import catchAsync from '#utils/core/catchAsync.js';
 
 /**
  * Middleware to handle tenant context with support for public endpoints
@@ -32,11 +32,11 @@ const tenantMiddleware = catchAsync(async (req, res, next) => {
   // 🔹 Check for exact path matches and path patterns
   const isPublicEndpoint = publicEndpoints.some(endpoint => {
     // Exact match
-    if (req.path === endpoint) {return true;}
-    
+    if (req.path === endpoint) { return true; }
+
     // Pattern match for swagger assets
-    if (req.path.startsWith('/api-docs/') && endpoint === '/api-docs') {return true;}
-    
+    if (req.path.startsWith('/api-docs/') && endpoint === '/api-docs') { return true; }
+
     return false;
   });
 
@@ -44,12 +44,12 @@ const tenantMiddleware = catchAsync(async (req, res, next) => {
     req.context = req.context || {};
     req.context.tenantId = baseConfig.multiTenant.defaultTenantId;
     req.context.isPublic = true;
-    
-    logger.debug(`Public endpoint accessed: ${req.path}`, { 
+
+    logger.debug(`Public endpoint accessed: ${req.path}`, {
       requestId: req.requestId,
-      userAgent: req.get('User-Agent') 
+      userAgent: req.get('User-Agent')
     });
-    
+
     await AuditService.log('PUBLIC_ENDPOINT_ACCESSED', {
       action: 'access_public_endpoint',
       path: req.path,
@@ -57,21 +57,21 @@ const tenantMiddleware = catchAsync(async (req, res, next) => {
       requestId: req.requestId,
       userAgent: req.get('User-Agent')
     });
-    
+
     return next();
   }
 
   // 🔹 Extract tenant ID from multiple sources (priority order)
-  const tenantId = 
+  const tenantId =
     req.headers[baseConfig.multiTenant.tenantHeaderName]?.toString() ||
     req.headers['x-school-id']?.toString() ||                          // Alternative header
     req.query.tenantId?.toString() ||                                  // Query parameter
     req.body?.tenantId?.toString();                                    // Request body
 
   if (!tenantId) {
-    logger.error('Tenant ID required', { 
-      path: req.path, 
-      method: req.method, 
+    logger.error('Tenant ID required', {
+      path: req.path,
+      method: req.method,
       ip: req.ip,
       headers: Object.keys(req.headers),
       availableHeaders: {
@@ -79,7 +79,7 @@ const tenantMiddleware = catchAsync(async (req, res, next) => {
         'x-school-id': req.headers['x-school-id']
       }
     });
-    
+
     await AuditService.log('TENANT_ID_MISSING', {
       action: 'tenant_validation_failed',
       path: req.path,
@@ -87,46 +87,46 @@ const tenantMiddleware = catchAsync(async (req, res, next) => {
       ip: req.ip,
       requestId: req.requestId
     });
-    
+
     // 🔹 Return detailed error for development
-    const errorMessage = baseConfig.env === 'development' 
+    const errorMessage = baseConfig.env === 'development'
       ? `Tenant ID required. Please provide via header '${baseConfig.multiTenant.tenantHeaderName}' or 'x-school-id'`
       : 'Tenant ID required';
-      
+
     throw new BusinessException(errorMessage, HTTP_STATUS.BAD_REQUEST);
   }
 
   try {
     // Validate tenant
     const tenant = await TenantService.validateTenant(tenantId, { requestId: req.requestId });
-    
+
     req.context = req.context || {};
     req.context.tenantId = tenant.tenantId;
     req.context.tenant = tenant;
     req.context.isPublic = false;
     req.tenant = tenant; // For backward compatibility
-    
-    logger.debug(`Tenant context set: ${tenantId}`, { 
+
+    logger.debug(`Tenant context set: ${tenantId}`, {
       requestId: req.requestId,
-      tenantName: tenant.name 
+      tenantName: tenant.name
     });
-    
+
     await AuditService.log('TENANT_VALIDATED', {
       action: 'tenant_validation_success',
       tenantId: tenant.tenantId,
       path: req.path,
       requestId: req.requestId
     });
-    
+
     next();
   } catch (error) {
-    logger.error(`Tenant validation failed: ${error.message}`, { 
-      tenantId, 
+    logger.error(`Tenant validation failed: ${error.message}`, {
+      tenantId,
       path: req.path,
       method: req.method,
-      ip: req.ip 
+      ip: req.ip
     });
-    
+
     await AuditService.log('TENANT_VALIDATION_FAILED', {
       action: 'tenant_validation_error',
       tenantId,
@@ -135,7 +135,7 @@ const tenantMiddleware = catchAsync(async (req, res, next) => {
       error: error.message,
       requestId: req.requestId
     });
-    
+
     throw error;
   }
 });

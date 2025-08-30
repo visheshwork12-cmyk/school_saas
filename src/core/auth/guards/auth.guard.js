@@ -1,7 +1,7 @@
 // src/core/auth/guards/auth.guard.js
 
 import { jwtService } from '#core/auth/services/jwt.service.js';
-import { catchAsync } from '#utils/core/catchAsync.js';
+import catchAsync from '#utils/core/catchAsync.js';
 import { AuthenticationException } from '#exceptions/authentication.exception.js';
 
 /**

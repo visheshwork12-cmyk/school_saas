@@ -1,6 +1,6 @@
 // src/shared/middleware/access-control/subscription-gate.middleware.js
 
-import { catchAsync } from '#utils/core/catchAsync.js';
+import catchAsync from '#utils/core/catchAsync.js';
 import { AuthorizationException } from '#exceptions/authorization.exception.js';
 import { logger } from '#utils/core/logger.js';
 

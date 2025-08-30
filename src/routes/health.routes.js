@@ -1,7 +1,7 @@
 // src/routes/health.routes.js
 
 import { Router } from 'express';
-import { catchAsync } from '#utils/core/catchAsync.js';
+import catchAsync from '#utils/core/catchAsync.js';
 import { systemHealthController } from '#api/v1/platform/superadmin/controllers/system-health.controller.js';
 import { logger } from '#utils/core/logger.js';
 

@@ -1,4 +1,4 @@
-import { catchAsync } from '#utils/core/catchAsync.js';
+import catchAsync from '#utils/core/catchAsync.js';
 import { logger } from '#utils/core/logger.js';
 import { AuthenticationException } from '#shared/exceptions/authentication.exception.js';
 import { AuditService } from '#core/audit/services/audit-log.service.js';

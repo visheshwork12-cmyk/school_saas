@@ -1,6 +1,6 @@
 // src/shared/middleware/tenant/school-context.middleware.js
 
-import { catchAsync } from '#utils/core/catchAsync.js';
+import catchAsync from '#utils/core/catchAsync.js';
 import SchoolModel from '#domain/models/school/school.model.js'; // Assume exists
 import { AuthenticationException } from '#exceptions/authentication.exception.js';
 import { logger } from '#utils/core/logger.js';

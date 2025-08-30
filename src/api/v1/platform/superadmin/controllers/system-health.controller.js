@@ -1,6 +1,6 @@
 import os from 'os';
 import { createClient } from 'redis';
-import { catchAsync } from '#utils/core/catchAsync.js';
+import catchAsync from '#utils/core/catchAsync.js';
 import mongoose from 'mongoose';
 import { logger } from '#utils/core/logger.js';
 import baseConfig from '#shared/config/environments/base.config.js';

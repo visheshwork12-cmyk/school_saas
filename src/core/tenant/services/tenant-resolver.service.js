@@ -1,6 +1,6 @@
 // src/core/tenant/services/tenant-resolver.service.js
 
-import { catchAsync } from '#utils/core/catchAsync.js';
+import catchAsync from '#utils/core/catchAsync.js';
 import { OrganizationRepository } from '#core/repositories/platform/organization.repository.js';
 import { AuthenticationException } from '#exceptions/authentication.exception.js';
 import config from '#config/index.js';

@@ -1,6 +1,6 @@
 // src/shared/middleware/validation/schema-validation.middleware.js
 
-import { catchAsync } from '#utils/core/catchAsync.js';
+import catchAsync from '#utils/core/catchAsync.js';
 import { ValidationException } from '#exceptions/validation.exception.js';
 import { logger } from '#utils/core/logger.js';
 

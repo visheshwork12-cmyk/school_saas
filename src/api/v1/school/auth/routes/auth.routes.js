@@ -1,7 +1,7 @@
 // src/api/v1/school/auth/routes/auth.routes.js - FIXED VERSION
 import { Router } from 'express';
 import rateLimit from 'express-rate-limit';
-import { catchAsync } from '#utils/core/catchAsync.js';
+import catchAsync from '#utils/core/catchAsync.js';
 import { schemaValidation } from '#shared/middleware/validation/schema-validation.middleware.js';
 import { loginSchema, registerSchema } from '#api/v1/school/auth/dto/login.dto.js';
 import { authController } from '#api/v1/school/auth/controllers/auth.controller.js';

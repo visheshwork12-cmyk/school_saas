@@ -1,6 +1,6 @@
 // src/api/v1/school/auth/controllers/auth.controller.js
 
-import { catchAsync } from '#utils/core/catchAsync.js';
+import catchAsync from '#utils/core/catchAsync.js';
 import { authService } from '#api/v1/school/auth/services/auth.service.js';
 import { responseFormatter } from '#utils/core/responseFormatter.js';
 import { logger } from '#utils/core/logger.js';

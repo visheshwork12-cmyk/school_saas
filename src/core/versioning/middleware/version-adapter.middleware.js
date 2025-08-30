@@ -3,7 +3,7 @@ import baseConfig from '#shared/config/environments/base.config.js';
 import { AuditService } from '#core/audit/services/audit-log.service.js';
 import { BusinessException } from '#shared/exceptions/business.exception.js';
 import HTTP_STATUS from '#constants/http-status.js';
-import { catchAsync } from '#utils/core/catchAsync.js';
+import catchAsync from '#utils/core/catchAsync.js';
 import { VersionHandlerService } from '#core/versioning/services/version-handler.service.js';
 
 /**

@@ -1,7 +1,7 @@
 // src/shared/middleware/validation/dto-validation.middleware.js
 
 import Joi from 'joi';
-import { catchAsync } from '#utils/core/catchAsync.js';
+import catchAsync from '#utils/core/catchAsync.js';
 import { ValidationException } from '#exceptions/validation.exception.js';
 import { logger } from '#utils/core/logger.js';
 

@@ -1,7 +1,7 @@
 // src/api/v1/platform/superadmin/routes/system-health.routes.js
 
 import { Router } from 'express';
-import { catchAsync } from '#utils/core/catchAsync.js';
+import catchAsync from '#utils/core/catchAsync.js';
 import { getSystemHealth } from '#api/v1/platform/superadmin/controllers/system-health.controller.js';
 import { authGuard } from '#core/auth/guards/auth.guard.js';
 import { roleGuard } from '#core/auth/guards/role.guard.js'; // Assume for superadmin role
