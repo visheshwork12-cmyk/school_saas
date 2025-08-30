@@ -34,7 +34,7 @@
     },
     {
       "src": "/status",
-      "dest": "/api/index.js", 
+      "dest": "/api/index.js",
       "methods": ["GET"],
       "headers": {
         "Cache-Control": "no-cache"
@@ -62,19 +62,12 @@
     "NODE_ENV": "production",
     "DEPLOYMENT_TYPE": "serverless"
   },
-  "functions": {
-    "api/index.js": {
-      "maxDuration": 30,
-      "memory": 1024,
-      "regions": ["iad1"]
-    }
-  },
   "headers": [
     {
       "source": "/api/(.*)",
       "headers": [
         {
-          "key": "Access-Control-Allow-Origin", 
+          "key": "Access-Control-Allow-Origin",
           "value": "*"
         },
         {
@@ -99,7 +92,7 @@
           "value": "nosniff"
         },
         {
-          "key": "X-Frame-Options", 
+          "key": "X-Frame-Options",
           "value": "DENY"
         },
         {
