@@ -74,7 +74,6 @@ ehthumbs.db
 Thumbs.db
 monitoring/grafana/provisioning/
 monitoring/prometheus/data/
-build/
 dist/
 public/build/
 docs/code/
