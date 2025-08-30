@@ -114,7 +114,7 @@ export default async function handler(req, res) {
 
 // Vercel function configuration
 export const config = {
-  runtime: 'nodejs18.x',
+  runtime: 'nodejs',
   maxDuration: 30,
   regions: ['iad1'],
   memory: 1024,
@@ -126,3 +126,4 @@ export const config = {
     externalResolver: true
   }
 };
+
