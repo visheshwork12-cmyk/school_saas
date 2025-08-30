@@ -1,0 +1,50 @@
+{
+  "watch": [
+    "src",
+    ".env",
+    ".env.local",
+    ".env.development",
+    "config"
+  ],
+  "ext": "js,mjs,json,yaml,yml",
+  "ignore": [
+    "node_modules/**/*",
+    "src/**/*.test.js",
+    "src/**/*.spec.js",
+    "src/**/*.integration.test.js",
+    "src/**/*.e2e.test.js",
+    "coverage/**/*",
+    "dist/**/*",
+    "logs/**/*",
+    ".git/**/*",
+    "*.tmp",
+    "*.log",
+    "src/public/**/*",
+    "src/uploads/**/*",
+    "docs/**/*",
+    "reports/**/*",
+    ".eslintcache",
+    ".nyc_output/**/*"
+  ],
+  "exec": "node --experimental-modules src/server.js",
+  "delay": 1000,
+  "env": {
+    "NODE_ENV": "development",
+    "DEBUG": "app:*",
+    "LOG_LEVEL": "debug"
+  },
+  "verbose": true,
+  "colours": true,
+  "restartable": "rs",
+  "events": {
+    "start": "echo '🚀 Server starting at $(date)'",
+    "restart": "echo '🔄 Server restarted at $(date)'",
+    "crash": "echo '💥 Server crashed at $(date)'",
+    "exit": "echo '👋 Server stopped at $(date)'"
+  },
+  "stdin": false,
+  "runOnChangeOnly": false,
+  "signal": "SIGTERM",
+  "stdout": true,
+  "legacyWatch": false
+}

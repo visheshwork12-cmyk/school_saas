@@ -1,0 +1,36 @@
+{
+  "source": {
+    "include": [
+      "./src/",
+      "./README.md"
+    ],
+    "includePattern": "\\.(js|mjs)$",
+    "exclude": [
+      "node_modules/",
+      "tests/",
+      "coverage/",
+      "dist/"
+    ]
+  },
+  "opts": {
+    "destination": "./docs/code/",
+    "readme": "./README.md",
+    "recurse": true
+  },
+  "plugins": [
+    "plugins/markdown"
+  ],
+  "templates": {
+    "cleverLinks": false,
+    "monospaceLinks": false
+  },
+  "babel": {
+    "extensions": ["js", "mjs"],
+    "babelrc": false,
+    "presets": [
+      ["@babel/preset-env", {
+        "modules": false
+      }]
+    ]
+  }
+}

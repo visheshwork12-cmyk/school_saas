@@ -1,0 +1,308 @@
+# monitoring/prometheus/alerts.yml - Comprehensive alert configurations
+groups:
+  - name: school-erp-api-alerts
+    rules:
+      # API Response Time Alerts
+      - alert: HighAPIResponseTime
+        expr: histogram_quantile(0.95, sum(rate(school_erp_http_request_duration_seconds_bucket[5m])) by (le)) > 2
+        for: 2m
+        labels:
+          severity: warning
+          component: api
+          team: backend
+        annotations:
+          summary: "High API response time detected"
+          description: "95th percentile API response time is {{ $value }}s for the last 5 minutes"
+          runbook_url: "https://wiki.company.com/runbooks/high-api-response-time"
+
+      - alert: CriticalAPIResponseTime
+        expr: histogram_quantile(0.95, sum(rate(school_erp_http_request_duration_seconds_bucket[5m])) by (le)) > 5
+        for: 1m
+        labels:
+          severity: critical
+          component: api
+          team: backend
+        annotations:
+          summary: "Critical API response time detected"
+          description: "95th percentile API response time is {{ $value }}s - immediate action required"
+
+      # Error Rate Alerts
+      - alert: HighErrorRate
+        expr: (sum(rate(school_erp_http_requests_total{status=~"5.."}[5m])) / sum(rate(school_erp_http_requests_total[5m]))) * 100 > 5
+        for: 2m
+        labels:
+          severity: warning
+          component: api
+          team: backend
+        annotations:
+          summary: "High error rate detected"
+          description: "Error rate is {{ $value }}% for the last 5 minutes"
+
+      - alert: CriticalErrorRate
+        expr: (sum(rate(school_erp_http_requests_total{status=~"5.."}[5m])) / sum(rate(school_erp_http_requests_total[5m]))) * 100 > 15
+        for: 1m
+        labels:
+          severity: critical
+          component: api
+          team: backend
+        annotations:
+          summary: "Critical error rate detected"
+          description: "Error rate is {{ $value }}% - immediate action required"
+
+      # Request Volume Alerts
+      - alert: HighRequestVolume
+        expr: sum(rate(school_erp_http_requests_total[5m])) > 1000
+        for: 5m
+        labels:
+          severity: warning
+          component: api
+          team: backend
+        annotations:
+          summary: "High request volume detected"
+          description: "Request rate is {{ $value }} requests/sec for the last 5 minutes"
+
+      - alert: LowRequestVolume
+        expr: sum(rate(school_erp_http_requests_total[5m])) < 1
+        for: 10m
+        labels:
+          severity: warning
+          component: api
+          team: backend
+        annotations:
+          summary: "Unusually low request volume"
+          description: "Request rate is only {{ $value }} requests/sec - possible service issue"
+
+  - name: database-alerts
+    rules:
+      # MongoDB Alerts
+      - alert: MongoDBDown
+        expr: up{job="mongodb-exporter"} == 0
+        for: 30s
+        labels:
+          severity: critical
+          component: database
+          team: infrastructure
+        annotations:
+          summary: "MongoDB is down"
+          description: "MongoDB server is not responding"
+
+      - alert: MongoDBHighConnections
+        expr: mongodb_connections{state="current"} / mongodb_connections{state="available"} * 100 > 80
+        for: 2m
+        labels:
+          severity: warning
+          component: database
+          team: infrastructure
+        annotations:
+          summary: "MongoDB high connection usage"
+          description: "MongoDB connection usage is {{ $value }}%"
+
+      - alert: MongoDBReplicationLag
+        expr: mongodb_mongod_replset_member_replication_lag > 10
+        for: 1m
+        labels:
+          severity: warning
+          component: database
+          team: infrastructure
+        annotations:
+          summary: "MongoDB replication lag detected"
+          description: "MongoDB replica is lagging by {{ $value }} seconds"
+
+      - alert: MongoDBSlowQueries
+        expr: rate(mongodb_op_counters_total[5m]) > 100
+        for: 2m
+        labels:
+          severity: warning
+          component: database
+          team: backend
+        annotations:
+          summary: "MongoDB slow queries detected"
+          description: "High number of slow queries: {{ $value }} queries/sec"
+
+  - name: redis-alerts
+    rules:
+      # Redis Alerts
+      - alert: RedisDown
+        expr: up{job="redis-exporter"} == 0
+        for: 30s
+        labels:
+          severity: critical
+          component: cache
+          team: infrastructure
+        annotations:
+          summary: "Redis is down"
+          description: "Redis server is not responding"
+
+      - alert: RedisHighMemoryUsage
+        expr: redis_memory_used_bytes / redis_config_maxmemory * 100 > 90
+        for: 2m
+        labels:
+          severity: warning
+          component: cache
+          team: infrastructure
+        annotations:
+          summary: "Redis high memory usage"
+          description: "Redis memory usage is {{ $value }}%"
+
+      - alert: RedisHighConnections
+        expr: redis_connected_clients > 100
+        for: 5m
+        labels:
+          severity: warning
+          component: cache
+          team: infrastructure
+        annotations:
+          summary: "Redis high connections"
+          description: "Redis has {{ $value }} connected clients"
+
+  - name: system-alerts
+    rules:
+      # System Resource Alerts
+      - alert: HighCPUUsage
+        expr: (100 - (avg by (instance) (rate(node_cpu_seconds_total{mode="idle"}[5m])) * 100)) > 85
+        for: 5m
+        labels:
+          severity: warning
+          component: system
+          team: infrastructure
+        annotations:
+          summary: "High CPU usage detected"
+          description: "CPU usage is {{ $value }}% on {{ $labels.instance }}"
+
+      - alert: HighMemoryUsage
+        expr: (node_memory_MemTotal_bytes - node_memory_MemAvailable_bytes) / node_memory_MemTotal_bytes * 100 > 90
+        for: 2m
+        labels:
+          severity: warning
+          component: system
+          team: infrastructure
+        annotations:
+          summary: "High memory usage detected"
+          description: "Memory usage is {{ $value }}% on {{ $labels.instance }}"
+
+      - alert: LowDiskSpace
+        expr: (node_filesystem_size_bytes - node_filesystem_free_bytes) / node_filesystem_size_bytes * 100 > 85
+        for: 2m
+        labels:
+          severity: warning
+          component: system
+          team: infrastructure
+        annotations:
+          summary: "Low disk space"
+          description: "Disk usage is {{ $value }}% on {{ $labels.instance }} {{ $labels.mountpoint }}"
+
+      - alert: CriticalDiskSpace
+        expr: (node_filesystem_size_bytes - node_filesystem_free_bytes) / node_filesystem_size_bytes * 100 > 95
+        for: 1m
+        labels:
+          severity: critical
+          component: system
+          team: infrastructure
+        annotations:
+          summary: "Critical disk space"
+          description: "Disk usage is {{ $value }}% on {{ $labels.instance }} {{ $labels.mountpoint }}"
+
+  - name: business-logic-alerts
+    rules:
+      # Business Logic Alerts
+      - alert: HighFailedLogins
+        expr: sum(increase(school_erp_auth_failed_attempts_total[5m])) > 50
+        for: 1m
+        labels:
+          severity: warning
+          component: security
+          team: security
+        annotations:
+          summary: "High number of failed login attempts"
+          description: "{{ $value }} failed login attempts in the last 5 minutes"
+
+      - alert: DatabaseMigrationFailed
+        expr: school_erp_migration_status != 1
+        for: 0s
+        labels:
+          severity: critical
+          component: database
+          team: backend
+        annotations:
+          summary: "Database migration failed"
+          description: "Database migration is in failed state"
+
+      - alert: BackupJobFailed
+        expr: time() - school_erp_last_successful_backup_timestamp > 86400
+        for: 0s
+        labels:
+          severity: warning
+          component: backup
+          team: infrastructure
+        annotations:
+          summary: "Backup job failed or overdue"
+          description: "Last successful backup was {{ $value }} seconds ago"
+
+      # Student Enrollment Monitoring
+      - alert: UnusualStudentEnrollment
+        expr: |
+          (
+            sum(increase(school_erp_student_enrollments_total[1h])) 
+            - 
+            avg_over_time(sum(increase(school_erp_student_enrollments_total[1h]))[7d:1h])
+          ) / avg_over_time(sum(increase(school_erp_student_enrollments_total[1h]))[7d:1h]) * 100 > 200
+        for: 30m
+        labels:
+          severity: info
+          component: business
+          team: product
+        annotations:
+          summary: "Unusual student enrollment pattern"
+          description: "Student enrollment is {{ $value }}% higher than the 7-day average"
+
+  - name: security-alerts
+    rules:
+      # Security Alerts
+      - alert: SuspiciousIPActivity
+        expr: sum by (ip) (rate(school_erp_suspicious_requests_total[5m])) > 10
+        for: 1m
+        labels:
+          severity: warning
+          component: security
+          team: security
+        annotations:
+          summary: "Suspicious IP activity detected"
+          description: "IP {{ $labels.ip }} is generating suspicious requests at {{ $value }} requests/sec"
+
+      - alert: RateLimitExceeded
+        expr: sum(rate(school_erp_rate_limit_exceeded_total[5m])) > 100
+        for: 2m
+        labels:
+          severity: warning
+          component: security
+          team: security
+        annotations:
+          summary: "Rate limit frequently exceeded"
+          description: "Rate limit exceeded {{ $value }} times per second"
+
+  - name: availability-alerts
+    rules:
+      # Service Availability
+      - alert: ServiceDown
+        expr: up{job=~"school-erp-.*"} == 0
+        for: 30s
+        labels:
+          severity: critical
+          component: availability
+          team: sre
+        annotations:
+          summary: "Service is down"
+          description: "Service {{ $labels.job }} on {{ $labels.instance }} is down"
+
+      - alert: HealthCheckFailing
+        expr: school_erp_health_check_status != 1
+        for: 1m
+        labels:
+          severity: warning
+          component: health
+          team: sre
+        annotations:
+          summary: "Health check failing"
+          description: "Health check {{ $labels.check_name }} is failing"
+
+# Alert routing configuration would go in alertmanager.yml

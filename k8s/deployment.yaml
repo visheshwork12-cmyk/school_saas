@@ -1,0 +1,340 @@
+# k8s/deployment.yaml - Production-ready deployment with advanced configurations
+
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: school-erp-api
+  namespace: school-erp
+  labels:
+    app: school-erp
+    component: api
+    version: v1.0.0
+    environment: production
+  annotations:
+    deployment.kubernetes.io/revision: "1"
+    kubernetes.io/description: "School ERP API deployment"
+spec:
+  replicas: 3
+  strategy:
+    type: RollingUpdate
+    rollingUpdate:
+      maxUnavailable: 25%
+      maxSurge: 25%
+  selector:
+    matchLabels:
+      app: school-erp
+      component: api
+  template:
+    metadata:
+      labels:
+        app: school-erp
+        component: api
+        version: v1.0.0
+        environment: production
+      annotations:
+        prometheus.io/scrape: "true"
+        prometheus.io/port: "3000"
+        prometheus.io/path: "/metrics"
+        co.elastic.logs/enabled: "true"
+        fluentd.io/exclude: "false"
+    spec:
+      serviceAccountName: school-erp-service-account
+      
+      # Security Context
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 1001
+        runAsGroup: 1001
+        fsGroup: 1001
+        seccompProfile:
+          type: RuntimeDefault
+      
+      # Init Containers for database migration and setup
+      initContainers:
+      - name: migration
+        image: your-registry/school-erp:latest
+        imagePullPolicy: Always
+        command: ['node', 'scripts/database/migrate.js']
+        env:
+        - name: NODE_ENV
+          valueFrom:
+            configMapKeyRef:
+              name: school-erp-config
+              key: NODE_ENV
+        - name: MONGODB_URI
+          valueFrom:
+            secretKeyRef:
+              name: school-erp-app-secrets
+              key: MONGODB_URI
+        resources:
+          limits:
+            cpu: 500m
+            memory: 512Mi
+          requests:
+            cpu: 200m
+            memory: 256Mi
+        securityContext:
+          runAsNonRoot: true
+          runAsUser: 1001
+          allowPrivilegeEscalation: false
+          readOnlyRootFilesystem: true
+          capabilities:
+            drop:
+            - ALL
+      
+      # Main Application Containers
+      containers:
+      - name: school-erp-api
+        image: your-registry/school-erp:latest
+        imagePullPolicy: Always
+        
+        ports:
+        - name: http
+          containerPort: 3000
+          protocol: TCP
+        - name: metrics
+          containerPort: 9090
+          protocol: TCP
+        
+        # Environment Variables from ConfigMap
+        envFrom:
+        - configMapRef:
+            name: school-erp-config
+        
+        # Environment Variables from Secrets
+        env:
+        - name: JWT_ACCESS_SECRET
+          valueFrom:
+            secretKeyRef:
+              name: school-erp-app-secrets
+              key: JWT_ACCESS_SECRET
+        - name: JWT_REFRESH_SECRET
+          valueFrom:
+            secretKeyRef:
+              name: school-erp-app-secrets
+              key: JWT_REFRESH_SECRET
+        - name: MONGODB_URI
+          valueFrom:
+            secretKeyRef:
+              name: school-erp-app-secrets
+              key: MONGODB_URI
+        - name: REDIS_URL
+          valueFrom:
+            secretKeyRef:
+              name: school-erp-app-secrets
+              key: REDIS_URL
+        - name: AWS_ACCESS_KEY_ID
+          valueFrom:
+            secretKeyRef:
+              name: school-erp-app-secrets
+              key: AWS_ACCESS_KEY_ID
+              optional: true  # Optional if using IAM roles
+        - name: AWS_SECRET_ACCESS_KEY
+          valueFrom:
+            secretKeyRef:
+              name: school-erp-app-secrets
+              key: AWS_SECRET_ACCESS_KEY
+              optional: true  # Optional if using IAM roles
+        
+        # Resource Management
+        resources:
+          limits:
+            cpu: 2000m      # 2 CPU cores max
+            memory: 2Gi     # 2GB memory max
+            ephemeral-storage: 5Gi
+          requests:
+            cpu: 1000m      # 1 CPU core requested
+            memory: 1Gi     # 1GB memory requested
+            ephemeral-storage: 1Gi
+        
+        # Health Checks
+        livenessProbe:
+          httpGet:
+            path: /health
+            port: http
+            httpHeaders:
+            - name: X-Health-Check
+              value: liveness
+          initialDelaySeconds: 60
+          periodSeconds: 30
+          timeoutSeconds: 10
+          successThreshold: 1
+          failureThreshold: 3
+        
+        readinessProbe:
+          httpGet:
+            path: /health
+            port: http
+            httpHeaders:
+            - name: X-Health-Check
+              value: readiness
+          initialDelaySeconds: 30
+          periodSeconds: 10
+          timeoutSeconds: 5
+          successThreshold: 1
+          failureThreshold: 3
+        
+        startupProbe:
+          httpGet:
+            path: /health
+            port: http
+          initialDelaySeconds: 30
+          periodSeconds: 10
+          timeoutSeconds: 5
+          failureThreshold: 30  # 5 minutes to startup
+        
+        # Security Context
+        securityContext:
+          runAsNonRoot: true
+          runAsUser: 1001
+          allowPrivilegeEscalation: false
+          readOnlyRootFilesystem: true
+          capabilities:
+            drop:
+            - ALL
+        
+        # Volume Mounts
+        volumeMounts:
+        - name: temp-volume
+          mountPath: /app/temp
+        - name: logs-volume
+          mountPath: /app/logs
+        - name: uploads-volume
+          mountPath: /app/uploads
+        - name: cache-volume
+          mountPath: /tmp
+        
+        # Lifecycle Management
+        lifecycle:
+          preStop:
+            exec:
+              command:
+              - /bin/sh
+              - -c
+              - sleep 15  # Grace period for request completion
+      
+      # NGINX Sidecar Container
+      - name: nginx-proxy
+        image: nginx:1.24-alpine
+        ports:
+        - name: nginx-http
+          containerPort: 80
+          protocol: TCP
+        
+        volumeMounts:
+        - name: nginx-config
+          mountPath: /etc/nginx/nginx.conf
+          subPath: nginx.conf
+        - name: nginx-cache
+          mountPath: /var/cache/nginx
+        - name: nginx-logs
+          mountPath: /var/log/nginx
+        
+        resources:
+          limits:
+            cpu: 200m
+            memory: 256Mi
+          requests:
+            cpu: 100m
+            memory: 128Mi
+        
+        securityContext:
+          runAsNonRoot: true
+          runAsUser: 101  # nginx user
+          allowPrivilegeEscalation: false
+          readOnlyRootFilesystem: false  # nginx needs to write to cache
+        
+        livenessProbe:
+          httpGet:
+            path: /nginx-health
+            port: nginx-http
+          initialDelaySeconds: 30
+          periodSeconds: 30
+        
+        readinessProbe:
+          httpGet:
+            path: /nginx-health
+            port: nginx-http
+          initialDelaySeconds: 5
+          periodSeconds: 5
+      
+      # Volumes
+      volumes:
+      - name: temp-volume
+        emptyDir:
+          sizeLimit: 1Gi
+      - name: logs-volume
+        emptyDir:
+          sizeLimit: 2Gi
+      - name: uploads-volume
+        persistentVolumeClaim:
+          claimName: school-erp-uploads-pvc
+      - name: cache-volume
+        emptyDir:
+          sizeLimit: 512Mi
+      - name: nginx-config
+        configMap:
+          name: school-erp-nginx-config
+      - name: nginx-cache
+        emptyDir:
+          sizeLimit: 1Gi
+      - name: nginx-logs
+        emptyDir:
+          sizeLimit: 500Mi
+      
+      # Pod Scheduling
+      affinity:
+        podAntiAffinity:
+          preferredDuringSchedulingIgnoredDuringExecution:
+          - weight: 100
+            podAffinityTerm:
+              labelSelector:
+                matchLabels:
+                  app: school-erp
+                  component: api
+              topologyKey: kubernetes.io/hostname
+        nodeAffinity:
+          preferredDuringSchedulingIgnoredDuringExecution:
+          - weight: 50
+            preference:
+              matchExpressions:
+              - key: node-type
+                operator: In
+                values:
+                - application
+      
+      # Tolerations for node taints
+      tolerations:
+      - key: application-nodes
+        operator: Equal
+        value: "true"
+        effect: NoSchedule
+      
+      # Termination Grace Period
+      terminationGracePeriodSeconds: 30
+      
+      # DNS Configuration
+      dnsPolicy: ClusterFirst
+      dnsConfig:
+        options:
+        - name: ndots
+          value: "2"
+        - name: edns0
+
+---
+# Persistent Volume Claim for uploads
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: school-erp-uploads-pvc
+  namespace: school-erp
+  labels:
+    app: school-erp
+    component: storage
+spec:
+  accessModes:
+  - ReadWriteMany  # Multiple pods can write
+  storageClassName: aws-efs  # AWS EFS for shared storage
+  resources:
+    requests:
+      storage: 50Gi

@@ -1,0 +1,190 @@
+# k8s/ingress.yaml - AWS ALB Ingress with advanced configurations
+
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: school-erp-ingress
+  namespace: school-erp
+  labels:
+    app: school-erp
+    component: ingress
+  annotations:
+    # AWS Load Balancer Controller annotations
+    kubernetes.io/ingress.class: alb
+    alb.ingress.kubernetes.io/scheme: internet-facing
+    alb.ingress.kubernetes.io/target-type: ip
+    
+    # SSL Configuration
+    alb.ingress.kubernetes.io/ssl-redirect: "443"
+    alb.ingress.kubernetes.io/certificate-arn: arn:aws:acm:region:account:certificate/cert-id
+    alb.ingress.kubernetes.io/ssl-policy: ELBSecurityPolicy-TLS-1-2-2017-01
+    
+    # Health Check Configuration
+    alb.ingress.kubernetes.io/healthcheck-path: /health
+    alb.ingress.kubernetes.io/healthcheck-interval-seconds: "30"
+    alb.ingress.kubernetes.io/healthcheck-timeout-seconds: "10"
+    alb.ingress.kubernetes.io/healthy-threshold-count: "2"
+    alb.ingress.kubernetes.io/unhealthy-threshold-count: "3"
+    alb.ingress.kubernetes.io/healthcheck-protocol: HTTP
+    
+    # Load Balancer Configuration
+    alb.ingress.kubernetes.io/load-balancer-name: school-erp-alb
+    alb.ingress.kubernetes.io/group.name: school-erp-group
+    alb.ingress.kubernetes.io/group.order: "100"
+    
+    # Performance and Scaling
+    alb.ingress.kubernetes.io/target-group-attributes: |
+      stickiness.enabled=false,
+      stickiness.lb_cookie.duration_seconds=86400,
+      slow_start.duration_seconds=30,
+      load_balancing.algorithm.type=least_outstanding_requests
+    
+    # Security
+    alb.ingress.kubernetes.io/wafv2-acl-arn: arn:aws:wafv2:region:account:regional/webacl/school-erp-waf/id
+    
+    # Rate Limiting
+    nginx.ingress.kubernetes.io/rate-limit: "100"
+    nginx.ingress.kubernetes.io/rate-limit-window: "1m"
+    
+    # CORS Configuration
+    nginx.ingress.kubernetes.io/enable-cors: "true"
+    nginx.ingress.kubernetes.io/cors-allow-methods: "GET, POST, PUT, PATCH, DELETE, OPTIONS"
+    nginx.ingress.kubernetes.io/cors-allow-headers: "Content-Type, Authorization, X-Tenant-ID, X-School-ID"
+    nginx.ingress.kubernetes.io/cors-expose-headers: "X-Request-ID, X-Total-Count"
+    
+    # Security Headers
+    nginx.ingress.kubernetes.io/configuration-snippet: |
+      more_set_headers "X-Frame-Options: DENY";
+      more_set_headers "X-Content-Type-Options: nosniff";
+      more_set_headers "X-XSS-Protection: 1; mode=block";
+      more_set_headers "Referrer-Policy: strict-origin-when-cross-origin";
+      more_set_headers "Permissions-Policy: geolocation=(), microphone=(), camera=()";
+    
+    # Performance
+    nginx.ingress.kubernetes.io/proxy-body-size: "50m"
+    nginx.ingress.kubernetes.io/proxy-connect-timeout: "30"
+    nginx.ingress.kubernetes.io/proxy-send-timeout: "30"
+    nginx.ingress.kubernetes.io/proxy-read-timeout: "30"
+    
+    # External DNS
+    external-dns.alpha.kubernetes.io/hostname: api.school-erp.com
+    
+spec:
+  ingressClassName: alb
+  
+  tls:
+  - hosts:
+    - api.school-erp.com
+    - www.school-erp.com
+    - school-erp.com
+    secretName: school-erp-tls-secret
+  
+  rules:
+  # Main API domain
+  - host: api.school-erp.com
+    http:
+      paths:
+      - path: /
+        pathType: Prefix
+        backend:
+          service:
+            name: school-erp-service
+            port:
+              name: http
+      
+      # API versioning
+      - path: /api/v1
+        pathType: Prefix
+        backend:
+          service:
+            name: school-erp-service
+            port:
+              name: http
+      
+      # Health checks (with different service if needed)
+      - path: /health
+        pathType: Exact
+        backend:
+          service:
+            name: school-erp-service
+            port:
+              name: http
+      
+      # Metrics endpoint (restricted access)
+      - path: /metrics
+        pathType: Exact
+        backend:
+          service:
+            name: school-erp-service
+            port:
+              name: metrics
+  
+  # Main website domain
+  - host: school-erp.com
+    http:
+      paths:
+      - path: /
+        pathType: Prefix
+        backend:
+          service:
+            name: school-erp-service
+            port:
+              name: http
+  
+  # www redirect
+  - host: www.school-erp.com
+    http:
+      paths:
+      - path: /
+        pathType: Prefix
+        backend:
+          service:
+            name: school-erp-service
+            port:
+              name: http
+
+---
+# Ingress for specific tenant subdomains (if using subdomain-based multitenancy)
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: school-erp-tenant-ingress
+  namespace: school-erp
+  labels:
+    app: school-erp
+    component: tenant-ingress
+  annotations:
+    kubernetes.io/ingress.class: alb
+    alb.ingress.kubernetes.io/scheme: internet-facing
+    alb.ingress.kubernetes.io/target-type: ip
+    alb.ingress.kubernetes.io/group.name: school-erp-group
+    alb.ingress.kubernetes.io/group.order: "200"
+    alb.ingress.kubernetes.io/ssl-redirect: "443"
+    alb.ingress.kubernetes.io/certificate-arn: arn:aws:acm:region:account:certificate/wildcard-cert-id
+    
+    # Tenant-specific configuration
+    nginx.ingress.kubernetes.io/configuration-snippet: |
+      set $tenant_id "";
+      if ($host ~* "^([^.]+)\.school-erp\.com$") {
+        set $tenant_id $1;
+      }
+      more_set_headers "X-Tenant-ID: $tenant_id";
+    
+spec:
+  ingressClassName: alb
+  tls:
+  - hosts:
+    - "*.school-erp.com"
+    secretName: school-erp-wildcard-tls
+  
+  rules:
+  - host: "*.school-erp.com"
+    http:
+      paths:
+      - path: /
+        pathType: Prefix
+        backend:
+          service:
+            name: school-erp-service
+            port:
+              name: http

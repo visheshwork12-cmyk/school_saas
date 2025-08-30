@@ -1,0 +1,35 @@
+# k8s/monitoring/grafana-dashboard.yaml
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: school-erp-grafana-dashboard
+  namespace: monitoring
+data:
+  dashboard.json: |
+    {
+      "dashboard": {
+        "title": "School ERP Monitoring",
+        "panels": [
+          {
+            "title": "API Request Rate",
+            "type": "graph",
+            "targets": [
+              {
+                "expr": "rate(http_requests_total[5m])",
+                "legendFormat": "Requests per second"
+              }
+            ]
+          },
+          {
+            "title": "Memory Usage",
+            "type": "gauge",
+            "targets": [
+              {
+                "expr": "node_memory_MemAvailable_bytes / node_memory_MemTotal_bytes * 100",
+                "legendFormat": "Available Memory %"
+              }
+            ]
+          }
+        ]
+      }
+    }

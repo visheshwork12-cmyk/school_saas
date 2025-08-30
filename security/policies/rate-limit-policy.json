@@ -1,0 +1,131 @@
+{
+  "version": "1.0.0",
+  "description": "Rate Limiting Policy Configuration",
+  "lastUpdated": "2025-08-26T15:30:00Z",
+  "global": {
+    "windowMs": 900000,
+    "max": 100,
+    "message": {
+      "success": false,
+      "error": {
+        "code": "RATE_LIMIT_EXCEEDED",
+        "message": "Too many requests from this IP, please try again later."
+      }
+    },
+    "standardHeaders": true,
+    "legacyHeaders": false,
+    "skipSuccessfulRequests": false,
+    "skipFailedRequests": false
+  },
+  "endpoints": {
+    "/api/v1/auth/login": {
+      "windowMs": 300000,
+      "max": 5,
+      "skipSuccessfulRequests": false,
+      "skipFailedRequests": false,
+      "keyGenerator": "ip_and_user",
+      "message": {
+        "success": false,
+        "error": {
+          "code": "LOGIN_RATE_LIMIT_EXCEEDED", 
+          "message": "Too many login attempts, please try again in 5 minutes."
+        }
+      }
+    },
+    "/api/v1/auth/forgot-password": {
+      "windowMs": 3600000,
+      "max": 3,
+      "keyGenerator": "ip_and_email",
+      "message": {
+        "success": false,
+        "error": {
+          "code": "PASSWORD_RESET_RATE_LIMIT_EXCEEDED",
+          "message": "Too many password reset requests, please try again in 1 hour."
+        }
+      }
+    },
+    "/api/v1/auth/register": {
+      "windowMs": 3600000,
+      "max": 10,
+      "keyGenerator": "ip",
+      "message": {
+        "success": false,
+        "error": {
+          "code": "REGISTRATION_RATE_LIMIT_EXCEEDED",
+          "message": "Too many registration attempts, please try again later."
+        }
+      }
+    },
+    "/api/v1/students": {
+      "windowMs": 60000,
+      "max": 50,
+      "keyGenerator": "tenant_and_user"
+    },
+    "/api/v1/upload": {
+      "windowMs": 60000,
+      "max": 20,
+      "keyGenerator": "tenant_and_user",
+      "message": {
+        "success": false,
+        "error": {
+          "code": "UPLOAD_RATE_LIMIT_EXCEEDED",
+          "message": "Too many uploads, please wait before uploading more files."
+        }
+      }
+    },
+    "/api/v1/search": {
+      "windowMs": 60000,
+      "max": 100,
+      "keyGenerator": "tenant_and_user"
+    },
+    "/api/v1/reports": {
+      "windowMs": 300000,
+      "max": 10,
+      "keyGenerator": "tenant_and_user",
+      "message": {
+        "success": false,
+        "error": {
+          "code": "REPORT_RATE_LIMIT_EXCEEDED",
+          "message": "Too many report requests, please wait before generating more reports."
+        }
+      }
+    }
+  },
+  "user_tiers": {
+    "premium": {
+      "multiplier": 2.0,
+      "description": "Premium users get 2x the rate limits"
+    },
+    "enterprise": {
+      "multiplier": 5.0,
+      "description": "Enterprise users get 5x the rate limits"
+    },
+    "trial": {
+      "multiplier": 0.5,
+      "description": "Trial users get 50% of standard rate limits"
+    }
+  },
+  "bypass_conditions": {
+    "health_checks": {
+      "paths": ["/health", "/status", "/metrics"],
+      "description": "Health check endpoints bypass rate limiting"
+    },
+    "admin_users": {
+      "roles": ["super_admin", "organization_admin"],
+      "multiplier": 10.0,
+      "description": "Admin users get higher rate limits"
+    },
+    "internal_services": {
+      "ip_whitelist": ["127.0.0.1", "::1", "10.0.0.0/8", "172.16.0.0/12"],
+      "description": "Internal service IPs bypass rate limiting"
+    }
+  },
+  "key_generators": {
+    "ip": "req.ip",
+    "user": "req.user?.id || req.ip", 
+    "tenant": "req.context?.tenantId || 'default'",
+    "ip_and_user": "req.ip + ':' + (req.user?.id || 'anonymous')",
+    "ip_and_email": "req.ip + ':' + (req.body?.email || 'no-email')",
+    "tenant_and_user": "(req.context?.tenantId || 'default') + ':' + (req.user?.id || req.ip)"
+  }
+}

@@ -1,0 +1,475 @@
+# .github/workflows/hybrid-deploy.yml - Hybrid deployment CI/CD pipeline
+name: 🚀 Hybrid Deployment Pipeline
+
+on:
+  push:
+    branches: [main, develop, staging]
+    tags: ['v*']
+  pull_request:
+    branches: [main, develop]
+  workflow_dispatch:
+    inputs:
+      deployment_target:
+        description: 'Deployment Target'
+        required: true
+        default: 'auto'
+        type: choice
+        options:
+          - auto
+          - docker
+          - k8s
+          - aws
+          - vercel
+      environment:
+        description: 'Environment'
+        required: true
+        default: 'staging'
+        type: choice
+        options:
+          - development
+          - staging
+          - production
+      skip_tests:
+        description: 'Skip Tests'
+        required: false
+        default: false
+        type: boolean
+      dry_run:
+        description: 'Dry Run'
+        required: false
+        default: false
+        type: boolean
+
+env:
+  NODE_VERSION: '18.x'
+  REGISTRY: ghcr.io
+  IMAGE_NAME: ${{ github.repository }}/school-erp-saas
+
+jobs:
+  # Job 1: Setup and Quality Checks
+  quality-checks:
+    name: 🔍 Quality Checks
+    runs-on: ubuntu-latest
+    outputs:
+      should_deploy: ${{ steps.changes.outputs.should_deploy }}
+      deployment_target: ${{ steps.detect.outputs.deployment_target }}
+      environment: ${{ steps.detect.outputs.environment }}
+    
+    steps:
+      - name: 📥 Checkout Code
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: 🔍 Detect Changes
+        id: changes
+        run: |
+          if [[ "${{ github.event_name }}" == "workflow_dispatch" ]] || [[ "${{ github.ref }}" =~ refs/tags/* ]]; then
+            echo "should_deploy=true" >> $GITHUB_OUTPUT
+          elif [[ "${{ github.event_name }}" == "push" ]]; then
+            if [[ "${{ github.ref }}" == "refs/heads/main" ]]; then
+              echo "should_deploy=true" >> $GITHUB_OUTPUT
+            elif [[ "${{ github.ref }}" == "refs/heads/develop" ]]; then
+              echo "should_deploy=true" >> $GITHUB_OUTPUT
+            else
+              echo "should_deploy=false" >> $GITHUB_OUTPUT
+            fi
+          else
+            echo "should_deploy=false" >> $GITHUB_OUTPUT
+          fi
+
+      - name: 🎯 Detect Deployment Target & Environment
+        id: detect
+        run: |
+          # Deployment target detection
+          if [[ "${{ github.event_name }}" == "workflow_dispatch" ]]; then
+            TARGET="${{ inputs.deployment_target }}"
+            ENV="${{ inputs.environment }}"
+          else
+            # Auto-detect based on branch and available configs
+            if [[ -f "docker/Dockerfile.prod" ]] && [[ -f "docker-compose.prod.yml" ]]; then
+              TARGET="docker"
+            elif [[ -d "k8s" ]] && [[ -f "k8s/deployment.yaml" ]]; then
+              TARGET="k8s"
+            elif [[ -f "infrastructure/terraform/main.tf" ]]; then
+              TARGET="aws"
+            elif [[ -f "vercel.json" ]]; then
+              TARGET="vercel"
+            else
+              TARGET="auto"
+            fi
+            
+            # Environment detection
+            if [[ "${{ github.ref }}" == "refs/heads/main" ]] || [[ "${{ github.ref }}" =~ refs/tags/* ]]; then
+              ENV="production"
+            elif [[ "${{ github.ref }}" == "refs/heads/develop" ]]; then
+              ENV="staging"
+            else
+              ENV="development"
+            fi
+          fi
+          
+          echo "deployment_target=$TARGET" >> $GITHUB_OUTPUT
+          echo "environment=$ENV" >> $GITHUB_OUTPUT
+          
+          echo "🎯 Deployment Target: $TARGET"
+          echo "🌍 Environment: $ENV"
+
+      - name: 🔧 Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: 'npm'
+
+      - name: 📦 Install Dependencies
+        run: |
+          npm ci --prefer-offline --no-audit --progress=false
+          npm ls
+
+      - name: 🔍 Code Quality - Linting
+        run: |
+          echo "🔍 Running ESLint..."
+          npm run lint -- --format=json --output-file=reports/eslint-results.json || true
+          npm run lint
+
+      - name: 🎨 Code Quality - Formatting
+        run: |
+          echo "🎨 Checking code formatting..."
+          npm run format:check
+
+      - name: 🛡️ Security - Audit Dependencies
+        run: |
+          echo "🛡️ Running security audit..."
+          npm audit --audit-level=moderate --json > reports/audit-results.json || true
+          npm audit --audit-level=moderate
+
+      - name: 🧪 Unit Tests
+        if: ${{ !inputs.skip_tests }}
+        run: |
+          echo "🧪 Running unit tests..."
+          npm run test:ci
+        env:
+          NODE_ENV: test
+          CI: true
+
+      - name: 📊 Upload Test Results
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: test-results-${{ github.run_number }}
+          path: |
+            coverage/
+            reports/
+          retention-days: 30
+
+  # Job 2: Build Application
+  build:
+    name: 🔨 Build Application
+    runs-on: ubuntu-latest
+    needs: quality-checks
+    if: needs.quality-checks.outputs.should_deploy == 'true'
+    
+    strategy:
+      matrix:
+        target: [docker, aws, vercel]
+        include:
+          - target: docker
+            build_script: build:docker
+          - target: aws
+            build_script: build:aws
+          - target: vercel
+            build_script: build:vercel
+    
+    steps:
+      - name: 📥 Checkout Code
+        uses: actions/checkout@v4
+
+      - name: 🔧 Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: 'npm'
+
+      - name: 📦 Install Dependencies
+        run: npm ci --prefer-offline --no-audit --progress=false
+
+      - name: 🔨 Build for ${{ matrix.target }}
+        run: npm run ${{ matrix.build_script }}
+        env:
+          NODE_ENV: production
+          TARGET: ${{ matrix.target }}
+
+      - name: 📊 Upload Build Artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: build-${{ matrix.target }}-${{ github.run_number }}
+          path: |
+            dist/
+            build/
+          retention-days: 7
+
+  # Job 3: Docker Build & Push
+  docker:
+    name: 🐳 Docker Build & Push
+    runs-on: ubuntu-latest
+    needs: [quality-checks, build]
+    if: needs.quality-checks.outputs.should_deploy == 'true' && (needs.quality-checks.outputs.deployment_target == 'docker' || needs.quality-checks.outputs.deployment_target == 'k8s' || needs.quality-checks.outputs.deployment_target == 'aws')
+    
+    outputs:
+      image_digest: ${{ steps.build.outputs.digest }}
+      image_url: ${{ steps.build.outputs.image_url }}
+    
+    steps:
+      - name: 📥 Checkout Code
+        uses: actions/checkout@v4
+
+      - name: 🔧 Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: 🔐 Login to Container Registry
+        uses: docker/login-action@v3
+        with:
+          registry: ${{ env.REGISTRY }}
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: 📊 Extract Metadata
+        id: meta
+        uses: docker/metadata-action@v5
+        with:
+          images: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}
+          tags: |
+            type=ref,event=branch
+            type=ref,event=pr
+            type=semver,pattern={{version}}
+            type=semver,pattern={{major}}.{{minor}}
+            type=raw,value=latest,enable={{is_default_branch}}
+            type=raw,value={{sha}},prefix={{branch}}-
+
+      - name: 🏗️ Build and Push Docker Image
+        id: build
+        uses: docker/build-push-action@v5
+        with:
+          context: .
+          file: docker/Dockerfile.prod
+          push: true
+          tags: ${{ steps.meta.outputs.tags }}
+          labels: ${{ steps.meta.outputs.labels }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+          build-args: |
+            NODE_ENV=production
+            BUILD_DATE=${{ github.event.head_commit.timestamp }}
+            VCS_REF=${{ github.sha }}
+            VERSION=${{ steps.meta.outputs.version }}
+
+      - name: 📋 Image Details
+        run: |
+          echo "🐳 Docker Image Details:"
+          echo "  Registry: ${{ env.REGISTRY }}"
+          echo "  Image: ${{ env.IMAGE_NAME }}"
+          echo "  Digest: ${{ steps.build.outputs.digest }}"
+          echo "  Tags: ${{ steps.meta.outputs.tags }}"
+          
+          echo "image_url=${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}@${{ steps.build.outputs.digest }}" >> $GITHUB_OUTPUT
+
+  # Job 4: Security Scanning
+  security:
+    name: 🛡️ Security Scanning
+    runs-on: ubuntu-latest
+    needs: [quality-checks, docker]
+    if: needs.quality-checks.outputs.should_deploy == 'true' && needs.docker.result == 'success'
+    
+    steps:
+      - name: 📥 Checkout Code
+        uses: actions/checkout@v4
+
+      - name: 🔍 Run Trivy Vulnerability Scanner
+        uses: aquasecurity/trivy-action@master
+        with:
+          image-ref: ${{ needs.docker.outputs.image_url }}
+          format: 'sarif'
+          output: 'trivy-results.sarif'
+
+      - name: 📊 Upload Trivy Results
+        uses: github/codeql-action/upload-sarif@v3
+        if: always()
+        with:
+          sarif_file: 'trivy-results.sarif'
+
+  # Job 5: Deploy to Staging
+  deploy-staging:
+    name: 🚀 Deploy to Staging
+    runs-on: ubuntu-latest
+    needs: [quality-checks, build, docker]
+    if: needs.quality-checks.outputs.should_deploy == 'true' && (github.ref == 'refs/heads/develop' || needs.quality-checks.outputs.environment == 'staging')
+    environment: 
+      name: staging
+      url: ${{ steps.deploy.outputs.deployment_url }}
+    
+    outputs:
+      deployment_url: ${{ steps.deploy.outputs.deployment_url }}
+      deployment_status: ${{ steps.deploy.outputs.status }}
+    
+    steps:
+      - name: 📥 Checkout Code
+        uses: actions/checkout@v4
+
+      - name: 📦 Download Build Artifacts
+        uses: actions/download-artifact@v4
+        with:
+          pattern: build-*
+          path: ./artifacts
+          merge-multiple: true
+
+      - name: 🚀 Deploy using Hybrid Script
+        id: deploy
+        run: |
+          chmod +x scripts/deploy-hybrid.sh
+          ./scripts/deploy-hybrid.sh ${{ needs.quality-checks.outputs.deployment_target }} staging ${{ github.sha }}
+        env:
+          FORCE: 'false'
+          DRY_RUN: ${{ inputs.dry_run || 'false' }}
+          SKIP_TESTS: ${{ inputs.skip_tests || 'false' }}
+          # Platform-specific secrets
+          VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
+          DOCKER_REGISTRY: ${{ env.REGISTRY }}
+          KUBECONFIG: ${{ secrets.KUBECONFIG_STAGING }}
+          AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+
+      - name: 🔍 Verify Deployment
+        id: verify
+        run: |
+          chmod +x scripts/verify-deployment.sh
+          ./scripts/verify-deployment.sh "${{ steps.deploy.outputs.deployment_url }}" staging --comprehensive
+
+      - name: 📊 Upload Deployment Report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: deployment-report-staging-${{ github.run_number }}
+          path: |
+            /tmp/deployment-report-*.json
+            /tmp/verification-report-*.json
+          retention-days: 30
+
+  # Job 6: Deploy to Production
+  deploy-production:
+    name: 🚀 Deploy to Production
+    runs-on: ubuntu-latest
+    needs: [quality-checks, build, docker, security, deploy-staging]
+    if: needs.quality-checks.outputs.should_deploy == 'true' && (github.ref == 'refs/heads/main' || startsWith(github.ref, 'refs/tags/') || needs.quality-checks.outputs.environment == 'production')
+    environment: 
+      name: production
+      url: ${{ steps.deploy.outputs.deployment_url }}
+    
+    outputs:
+      deployment_url: ${{ steps.deploy.outputs.deployment_url }}
+      deployment_status: ${{ steps.deploy.outputs.status }}
+    
+    steps:
+      - name: 📥 Checkout Code
+        uses: actions/checkout@v4
+
+      - name: 📦 Download Build Artifacts
+        uses: actions/download-artifact@v4
+        with:
+          pattern: build-*
+          path: ./artifacts
+          merge-multiple: true
+
+      - name: ⚠️ Production Deployment Warning
+        run: |
+          echo "🚨 PRODUCTION DEPLOYMENT"
+          echo "Target: ${{ needs.quality-checks.outputs.deployment_target }}"
+          echo "Image: ${{ needs.docker.outputs.image_url }}"
+          echo "Commit: ${{ github.sha }}"
+          echo "Actor: ${{ github.actor }}"
+
+      - name: 🚀 Deploy to Production
+        id: deploy
+        run: |
+          chmod +x scripts/deploy-hybrid.sh
+          ./scripts/deploy-hybrid.sh ${{ needs.quality-checks.outputs.deployment_target }} production ${{ github.sha }}
+        env:
+          FORCE: 'true'  # Production deployments are pre-approved
+          DRY_RUN: ${{ inputs.dry_run || 'false' }}
+          SKIP_TESTS: 'false'  # Always run tests for production
+          # Platform-specific secrets
+          VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
+          DOCKER_REGISTRY: ${{ env.REGISTRY }}
+          KUBECONFIG: ${{ secrets.KUBECONFIG_PRODUCTION }}
+          AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+
+      - name: 🔍 Verify Production Deployment
+        id: verify
+        run: |
+          chmod +x scripts/verify-deployment.sh
+          ./scripts/verify-deployment.sh "${{ steps.deploy.outputs.deployment_url }}" production --comprehensive --timeout 600
+
+      - name: 📊 Upload Production Deployment Report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: deployment-report-production-${{ github.run_number }}
+          path: |
+            /tmp/deployment-report-*.json
+            /tmp/verification-report-*.json
+          retention-days: 90
+
+  # Job 7: Notification & Cleanup
+  notify:
+    name: 📢 Notify & Cleanup
+    runs-on: ubuntu-latest
+    needs: [quality-checks, deploy-staging, deploy-production]
+    if: always() && needs.quality-checks.outputs.should_deploy == 'true'
+    
+    steps:
+      - name: 📊 Collect Deployment Status
+        id: status
+        run: |
+          STAGING_STATUS="${{ needs.deploy-staging.result }}"
+          PRODUCTION_STATUS="${{ needs.deploy-production.result }}"
+          
+          if [[ "$STAGING_STATUS" == "success" ]] && [[ "$PRODUCTION_STATUS" == "success" ]]; then
+            OVERALL_STATUS="✅ SUCCESS"
+            COLOR="good"
+          elif [[ "$STAGING_STATUS" == "success" ]] || [[ "$PRODUCTION_STATUS" == "success" ]]; then
+            OVERALL_STATUS="⚠️ PARTIAL"
+            COLOR="warning"
+          else
+            OVERALL_STATUS="❌ FAILED"
+            COLOR="danger"
+          fi
+          
+          echo "overall_status=$OVERALL_STATUS" >> $GITHUB_OUTPUT
+          echo "color=$COLOR" >> $GITHUB_OUTPUT
+
+      - name: 📢 Slack Notification
+        if: always()
+        uses: 8398a7/action-slack@v3
+        with:
+          status: ${{ steps.status.outputs.overall_status }}
+          channel: '#deployments'
+          text: |
+            🚀 *School ERP SaaS Deployment*
+            
+            *Status*: ${{ steps.status.outputs.overall_status }}
+            *Target*: ${{ needs.quality-checks.outputs.deployment_target }}
+            *Environment*: ${{ needs.quality-checks.outputs.environment }}
+            *Commit*: `${{ github.sha }}`
+            *Actor*: ${{ github.actor }}
+            
+            *URLs*:
+            • Staging: ${{ needs.deploy-staging.outputs.deployment_url }}
+            • Production: ${{ needs.deploy-production.outputs.deployment_url }}
+        env:
+          SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK_URL }}
+
+      - name: 🧹 Cleanup Old Artifacts
+        if: always()
+        run: |
+          echo "🧹 Deployment cleanup completed"
+          echo "Pipeline finished at: $(date -Iseconds)"

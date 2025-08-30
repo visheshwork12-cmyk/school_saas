@@ -1,0 +1,80 @@
+# k8s/namespace.yaml - Namespace with proper labeling and resource quotas
+
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: school-erp
+  labels:
+    name: school-erp
+    environment: production
+    application: school-management-system
+    version: v1.0.0
+    managed-by: kubernetes
+    team: platform-team
+  annotations:
+    description: "Multi-tenant School ERP SaaS Application"
+    contact: "platform-team@school-erp.com"
+    created-by: "DevOps Team"
+    aws.amazon.com/load-balancer-controller-version: "v2.4.0"
+
+---
+# Resource Quota for the namespace
+apiVersion: v1
+kind: ResourceQuota
+metadata:
+  name: school-erp-quota
+  namespace: school-erp
+  labels:
+    app: school-erp
+    component: quota
+spec:
+  hard:
+    requests.cpu: "8"      # 8 CPU cores total request
+    requests.memory: 16Gi   # 16GB memory total request
+    limits.cpu: "16"       # 16 CPU cores total limit
+    limits.memory: 32Gi     # 32GB memory total limit
+    requests.storage: 100Gi # 100GB storage total request
+    persistentvolumeclaims: "10"
+    pods: "50"             # Maximum 50 pods
+    services: "20"         # Maximum 20 services
+    secrets: "30"          # Maximum 30 secrets
+    configmaps: "20"       # Maximum 20 configmaps
+
+---
+# Network Policy for security
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: school-erp-network-policy
+  namespace: school-erp
+spec:
+  podSelector:
+    matchLabels:
+      app: school-erp
+  policyTypes:
+  - Ingress
+  - Egress
+  ingress:
+  - from:
+    - namespaceSelector:
+        matchLabels:
+          name: ingress-nginx
+    - namespaceSelector:
+        matchLabels:
+          name: monitoring
+    ports:
+    - protocol: TCP
+      port: 3000
+  egress:
+  - to:
+    - namespaceSelector:
+        matchLabels:
+          name: kube-system
+  - to: []
+    ports:
+    - protocol: TCP
+      port: 443  # HTTPS
+    - protocol: TCP
+      port: 53   # DNS
+    - protocol: UDP
+      port: 53   # DNS

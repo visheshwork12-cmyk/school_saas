@@ -1,0 +1,216 @@
+{
+  "version": "1.0.0",
+  "description": "Role-Based Access Control Policy for School ERP SaaS",
+  "lastUpdated": "2025-08-26T15:30:00Z",
+  "roles": {
+    "super_admin": {
+      "name": "Super Administrator",
+      "description": "Full system access across all tenants",
+      "permissions": ["*"],
+      "restrictions": {
+        "ip_whitelist": ["192.168.1.0/24", "10.0.0.0/16"],
+        "mfa_required": true,
+        "session_timeout": "4h",
+        "concurrent_sessions": 1
+      }
+    },
+    "organization_admin": {
+      "name": "Organization Administrator", 
+      "description": "Full access within organization/tenant",
+      "permissions": [
+        "organization:*",
+        "school:*",
+        "user:*",
+        "student:*",
+        "teacher:*",
+        "class:*",
+        "subject:*",
+        "attendance:*",
+        "grade:*",
+        "fee:*",
+        "library:*",
+        "transport:*",
+        "report:*",
+        "settings:*"
+      ],
+      "restrictions": {
+        "tenant_isolation": true,
+        "mfa_required": true,
+        "session_timeout": "8h",
+        "concurrent_sessions": 2
+      }
+    },
+    "school_admin": {
+      "name": "School Administrator",
+      "description": "Administrative access within specific school",
+      "permissions": [
+        "school:read",
+        "school:update",
+        "user:create",
+        "user:read",
+        "user:update",
+        "student:*",
+        "teacher:*",
+        "class:*",
+        "subject:*",
+        "attendance:*",
+        "grade:*",
+        "fee:read",
+        "fee:update",
+        "library:*",
+        "transport:*",
+        "report:read",
+        "settings:read"
+      ],
+      "restrictions": {
+        "school_isolation": true,
+        "mfa_required": false,
+        "session_timeout": "12h",
+        "concurrent_sessions": 3
+      }
+    },
+    "teacher": {
+      "name": "Teacher",
+      "description": "Teaching staff with student management access",
+      "permissions": [
+        "student:read",
+        "class:read",
+        "subject:read",
+        "attendance:create",
+        "attendance:read",
+        "attendance:update",
+        "grade:create",
+        "grade:read", 
+        "grade:update",
+        "assignment:*",
+        "communication:create",
+        "communication:read",
+        "library:read",
+        "report:read"
+      ],
+      "restrictions": {
+        "class_isolation": true,
+        "subject_isolation": true,
+        "session_timeout": "12h",
+        "concurrent_sessions": 2
+      }
+    },
+    "student": {
+      "name": "Student",
+      "description": "Student with limited read access to own data",
+      "permissions": [
+        "profile:read",
+        "profile:update_limited",
+        "attendance:read_own",
+        "grade:read_own",
+        "fee:read_own",
+        "assignment:read_own",
+        "assignment:submit",
+        "library:read",
+        "library:issue_request",
+        "transport:read_own",
+        "communication:read_own"
+      ],
+      "restrictions": {
+        "self_data_only": true,
+        "session_timeout": "24h",
+        "concurrent_sessions": 2
+      }
+    },
+    "parent": {
+      "name": "Parent/Guardian",
+      "description": "Parent access to child's academic information",
+      "permissions": [
+        "student:read_children",
+        "attendance:read_children",
+        "grade:read_children",
+        "fee:read_children",
+        "fee:pay",
+        "assignment:read_children",
+        "library:read_children",
+        "transport:read_children",
+        "communication:read_children",
+        "communication:create_to_school"
+      ],
+      "restrictions": {
+        "children_data_only": true,
+        "session_timeout": "24h",
+        "concurrent_sessions": 3
+      }
+    },
+    "accountant": {
+      "name": "Accountant",
+      "description": "Financial management access",
+      "permissions": [
+        "fee:*",
+        "payment:*",
+        "report:financial",
+        "student:read",
+        "parent:read"
+      ],
+      "restrictions": {
+        "financial_data_only": true,
+        "session_timeout": "8h",
+        "concurrent_sessions": 2
+      }
+    },
+    "librarian": {
+      "name": "Librarian", 
+      "description": "Library management access",
+      "permissions": [
+        "library:*",
+        "book:*",
+        "student:read",
+        "teacher:read",
+        "report:library"
+      ],
+      "restrictions": {
+        "library_scope_only": true,
+        "session_timeout": "8h",
+        "concurrent_sessions": 1
+      }
+    }
+  },
+  "resources": {
+    "organization": ["create", "read", "update", "delete"],
+    "school": ["create", "read", "update", "delete"],
+    "user": ["create", "read", "update", "delete", "activate", "deactivate"],
+    "student": ["create", "read", "update", "delete", "enroll", "transfer"],
+    "teacher": ["create", "read", "update", "delete", "assign"],
+    "class": ["create", "read", "update", "delete", "assign"],
+    "subject": ["create", "read", "update", "delete"],
+    "attendance": ["create", "read", "update", "delete"],
+    "grade": ["create", "read", "update", "delete"],
+    "fee": ["create", "read", "update", "delete", "pay"],
+    "library": ["create", "read", "update", "delete", "issue", "return"],
+    "transport": ["create", "read", "update", "delete", "assign"],
+    "report": ["read", "export"],
+    "settings": ["read", "update"]
+  },
+  "conditions": {
+    "tenant_isolation": {
+      "type": "tenant_match",
+      "description": "User can only access data within their tenant"
+    },
+    "school_isolation": {
+      "type": "school_match", 
+      "description": "User can only access data within their assigned school"
+    },
+    "class_isolation": {
+      "type": "class_match",
+      "description": "Teacher can only access assigned classes"
+    },
+    "subject_isolation": {
+      "type": "subject_match",
+      "description": "Teacher can only access assigned subjects"
+    },
+    "self_data_only": {
+      "type": "user_match",
+      "description": "User can only access their own data"
+    },
+    "children_data_only": {
+      "type": "parent_child_match",
+      "description": "Parent can only access their children's data"
+    }
+  }
+}

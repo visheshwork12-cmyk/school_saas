@@ -1,0 +1,86 @@
+# docker/Dockerfile.dev - Development environment with hot reload
+
+FROM node:18-alpine
+
+# Set build arguments
+ARG NODE_ENV=development
+ARG BUILD_DATE
+ARG VERSION
+
+# Add metadata
+LABEL maintainer="School ERP Team <dev@school-erp.com>"
+LABEL version="${VERSION}"
+LABEL build-date="${BUILD_DATE}"
+LABEL description="School ERP SaaS - Development Environment"
+
+# Install development tools
+RUN apk add --no-cache \
+    git \
+    curl \
+    vim \
+    bash \
+    python3 \
+    make \
+    g++ \
+    ca-certificates
+
+# Install global development tools
+RUN npm install -g \
+    nodemon \
+    jest \
+    eslint \
+    prettier
+
+# Set working directory
+WORKDIR /app
+
+# Create non-root user for development
+RUN addgroup -g 1001 -S nodejs && \
+    adduser -S school-erp -u 1001
+
+# Set ownership of working directory
+RUN chown -R school-erp:nodejs /app
+
+# Copy package files first (for better caching)
+COPY package*.json ./
+COPY yarn.lock* ./
+
+# Install all dependencies (including dev dependencies)
+RUN npm install && \
+    npm cache clean --force
+
+# Create necessary directories
+RUN mkdir -p \
+    /app/logs \
+    /app/temp \
+    /app/uploads \
+    /app/coverage \
+    /app/docs
+
+# Set permissions
+RUN chown -R school-erp:nodejs \
+    /app/logs \
+    /app/temp \
+    /app/uploads \
+    /app/coverage \
+    /app/docs
+
+# Set environment variables
+ENV NODE_ENV=development
+ENV PORT=3000
+ENV DEPLOYMENT_TYPE=docker
+ENV CHOKIDAR_USEPOLLING=true
+ENV CHOKIDAR_INTERVAL=1000
+
+# Switch to non-root user
+USER school-erp
+
+# Expose ports
+EXPOSE 3000 9229
+
+# Development health check (more frequent)
+HEALTHCHECK --interval=10s --timeout=5s --start-period=30s --retries=3 \
+    CMD curl -f http://localhost:3000/health || exit 1
+
+# Development command with nodemon
+CMD ["npm", "run", "dev"]

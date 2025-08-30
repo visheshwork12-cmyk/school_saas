@@ -1,0 +1,172 @@
+# docker-compose.dev.yml - Development environment with all services
+
+version: '3.8'
+
+services:
+  # Main Application
+  app:
+    build:
+      context: ..
+      dockerfile: docker/Dockerfile.dev
+      args:
+        NODE_ENV: development
+        BUILD_DATE: ${BUILD_DATE:-}
+        VERSION: ${VERSION:-latest}
+    container_name: school-erp-dev
+    restart: unless-stopped
+    ports:
+      - "3000:3000"
+      - "9229:9229" # Debug port
+    environment:
+      - NODE_ENV=development
+      - PORT=3000
+      - MONGODB_URI=mongodb://mongodb:27017/school-erp-dev
+      - REDIS_URL=redis://redis:6379
+      - REDIS_ENABLED=true
+      - JWT_ACCESS_SECRET=dev-access-secret-key-minimum-32-chars-long
+      - JWT_REFRESH_SECRET=dev-refresh-secret-key-minimum-32-chars-long
+      - CORS_ALLOWED_ORIGINS=http://localhost:3000,http://localhost:3001,http://localhost:5173
+      - LOG_LEVEL=debug
+      - ENABLE_DOCS=true
+      - ENABLE_DEV_MIDDLEWARE=true
+    volumes:
+      - ../src:/app/src:cached
+      - ../api:/app/api:cached
+      - ../tests:/app/tests:cached
+      - ../docs:/app/docs:cached
+      - dev_node_modules:/app/node_modules
+      - dev_logs:/app/logs
+      - dev_temp:/app/temp
+      - dev_uploads:/app/uploads
+    depends_on:
+      mongodb:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    networks:
+      - school-erp-dev
+    command: npm run dev
+
+  # MongoDB Database
+  mongodb:
+    image: mongo:6.0-focal
+    container_name: school-erp-mongodb-dev
+    restart: unless-stopped
+    ports:
+      - "27017:27017"
+    environment:
+      MONGO_INITDB_ROOT_USERNAME: ${MONGO_ROOT_USERNAME:-admin}
+      MONGO_INITDB_ROOT_PASSWORD: ${MONGO_ROOT_PASSWORD:-password123}
+      MONGO_INITDB_DATABASE: school-erp-dev
+    volumes:
+      - mongodb_data:/data/db
+      - mongodb_config:/data/configdb
+      - ../infrastructure/database/mongodb/init:/docker-entrypoint-initdb.d:ro
+    networks:
+      - school-erp-dev
+    healthcheck:
+      test: ["CMD", "mongosh", "--eval", "db.adminCommand('ping')"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 30s
+
+  # Redis Cache
+  redis:
+    image: redis:7-alpine
+    container_name: school-erp-redis-dev
+    restart: unless-stopped
+    ports:
+      - "6379:6379"
+    command: redis-server --appendonly yes --requirepass ${REDIS_PASSWORD:-devpassword}
+    volumes:
+      - redis_data:/data
+    networks:
+      - school-erp-dev
+    healthcheck:
+      test: ["CMD", "redis-cli", "--raw", "incr", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # MinIO (S3-compatible storage for development)
+  minio:
+    image: minio/minio:latest
+    container_name: school-erp-minio-dev
+    restart: unless-stopped
+    ports:
+      - "9000:9000"
+      - "9001:9001"
+    environment:
+      MINIO_ROOT_USER: ${MINIO_ROOT_USER:-minioadmin}
+      MINIO_ROOT_PASSWORD: ${MINIO_ROOT_PASSWORD:-minioadmin}
+    volumes:
+      - minio_data:/data
+    networks:
+      - school-erp-dev
+    command: server /data --console-address ":9001"
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:9000/minio/health/live"]
+      interval: 30s
+      timeout: 20s
+      retries: 3
+
+  # MailCatcher (Email testing)
+  mailcatcher:
+    image: schickling/mailcatcher
+    container_name: school-erp-mailcatcher-dev
+    restart: unless-stopped
+    ports:
+      - "1025:1025" # SMTP
+      - "1080:1080" # Web interface
+    networks:
+      - school-erp-dev
+
+  # Adminer (Database management)
+  adminer:
+    image: adminer:latest
+    container_name: school-erp-adminer-dev
+    restart: unless-stopped
+    ports:
+      - "8080:8080"
+    environment:
+      ADMINER_DEFAULT_SERVER: mongodb
+    networks:
+      - school-erp-dev
+
+  # Redis Commander (Redis management)
+  redis-commander:
+    image: rediscommander/redis-commander:latest
+    container_name: school-erp-redis-commander-dev
+    restart: unless-stopped
+    ports:
+      - "8081:8081"
+    environment:
+      REDIS_HOSTS: local:redis:6379:0:${REDIS_PASSWORD:-devpassword}
+    networks:
+      - school-erp-dev
+    depends_on:
+      - redis
+
+networks:
+  school-erp-dev:
+    driver: bridge
+    name: school-erp-dev-network
+
+volumes:
+  dev_node_modules:
+    name: school-erp-dev-node-modules
+  dev_logs:
+    name: school-erp-dev-logs
+  dev_temp:
+    name: school-erp-dev-temp
+  dev_uploads:
+    name: school-erp-dev-uploads
+  mongodb_data:
+    name: school-erp-mongodb-dev-data
+  mongodb_config:
+    name: school-erp-mongodb-dev-config
+  redis_data:
+    name: school-erp-redis-dev-data
+  minio_data:
+    name: school-erp-minio-dev-data

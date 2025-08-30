@@ -1,0 +1,103 @@
+# docker-compose.yml - Base configuration for quick development setup
+
+version: '3.8'
+
+services:
+  # Main Application
+  app:
+    build:
+      context: .
+      dockerfile: docker/Dockerfile
+      args:
+        NODE_ENV: ${NODE_ENV:-development}
+        BUILD_DATE: ${BUILD_DATE:-}
+        VERSION: ${VERSION:-latest}
+    container_name: school-erp-app
+    restart: unless-stopped
+    ports:
+      - "${PORT:-3000}:3000"
+    environment:
+      - NODE_ENV=${NODE_ENV:-development}
+      - PORT=3000
+      - MONGODB_URI=${MONGODB_URI:-mongodb://mongodb:27017/school-erp}
+      - REDIS_URL=${REDIS_URL:-redis://redis:6379}
+      - JWT_ACCESS_SECRET=${JWT_ACCESS_SECRET:-default-access-secret}
+      - JWT_REFRESH_SECRET=${JWT_REFRESH_SECRET:-default-refresh-secret}
+      - LOG_LEVEL=${LOG_LEVEL:-info}
+    volumes:
+      - app_logs:/app/logs
+      - app_temp:/app/temp
+      - app_uploads:/app/uploads
+    depends_on:
+      mongodb:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    networks:
+      - school-erp
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:3000/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 60s
+
+  # MongoDB
+  mongodb:
+    image: mongo:6.0-focal
+    container_name: school-erp-mongodb
+    restart: unless-stopped
+    ports:
+      - "${MONGO_PORT:-27017}:27017"
+    environment:
+      MONGO_INITDB_ROOT_USERNAME: ${MONGO_ROOT_USERNAME:-admin}
+      MONGO_INITDB_ROOT_PASSWORD: ${MONGO_ROOT_PASSWORD:-password123}
+      MONGO_INITDB_DATABASE: ${MONGO_INITDB_DATABASE:-school-erp}
+    volumes:
+      - mongodb_data:/data/db
+      - mongodb_config:/data/configdb
+    networks:
+      - school-erp
+    healthcheck:
+      test: ["CMD", "mongosh", "--eval", "db.adminCommand('ping')"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 30s
+
+  # Redis
+  redis:
+    image: redis:7-alpine
+    container_name: school-erp-redis
+    restart: unless-stopped
+    ports:
+      - "${REDIS_PORT:-6379}:6379"
+    command: redis-server --appendonly yes ${REDIS_PASSWORD:+--requirepass $REDIS_PASSWORD}
+    volumes:
+      - redis_data:/data
+    networks:
+      - school-erp
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+networks:
+  school-erp:
+    driver: bridge
+    name: school-erp-network
+
+volumes:
+  app_logs:
+    name: school-erp-app-logs
+  app_temp:
+    name: school-erp-app-temp
+  app_uploads:
+    name: school-erp-app-uploads
+  mongodb_data:
+    name: school-erp-mongodb-data
+  mongodb_config:
+    name: school-erp-mongodb-config
+  redis_data:
+    name: school-erp-redis-data

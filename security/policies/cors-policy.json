@@ -1,0 +1,114 @@
+{
+  "version": "1.0.0",
+  "description": "Cross-Origin Resource Sharing Policy",
+  "lastUpdated": "2025-08-26T15:30:00Z",
+  "environments": {
+    "development": {
+      "allowedOrigins": [
+        "http://localhost:3000",
+        "http://localhost:3001", 
+        "http://localhost:5173",
+        "http://127.0.0.1:3000",
+        "https://dev.school-erp.local"
+      ],
+      "allowedMethods": [
+        "GET", "HEAD", "PUT", "PATCH", "POST", "DELETE", "OPTIONS"
+      ],
+      "allowedHeaders": [
+        "Accept",
+        "Accept-Language", 
+        "Content-Language",
+        "Content-Type",
+        "Authorization",
+        "X-Requested-With",
+        "X-Tenant-ID",
+        "X-School-ID",
+        "X-Request-ID",
+        "X-API-Version"
+      ],
+      "exposedHeaders": [
+        "X-Request-ID",
+        "X-Rate-Limit-Remaining",
+        "X-Rate-Limit-Reset",
+        "X-Total-Count"
+      ],
+      "credentials": true,
+      "maxAge": 3600,
+      "preflightContinue": false,
+      "optionsSuccessStatus": 200
+    },
+    "staging": {
+      "allowedOrigins": [
+        "https://staging.school-erp.com",
+        "https://staging-admin.school-erp.com",
+        "https://staging-api.school-erp.com"
+      ],
+      "allowedMethods": [
+        "GET", "HEAD", "PUT", "PATCH", "POST", "DELETE", "OPTIONS"
+      ],
+      "allowedHeaders": [
+        "Accept",
+        "Content-Type", 
+        "Authorization",
+        "X-Tenant-ID",
+        "X-School-ID",
+        "X-Request-ID"
+      ],
+      "exposedHeaders": [
+        "X-Request-ID",
+        "X-Rate-Limit-Remaining"
+      ],
+      "credentials": true,
+      "maxAge": 86400,
+      "strictOriginValidation": true
+    },
+    "production": {
+      "allowedOrigins": [
+        "https://app.school-erp.com",
+        "https://admin.school-erp.com", 
+        "https://api.school-erp.com"
+      ],
+      "allowedMethods": [
+        "GET", "HEAD", "PUT", "PATCH", "POST", "DELETE"
+      ],
+      "allowedHeaders": [
+        "Accept",
+        "Content-Type",
+        "Authorization", 
+        "X-Tenant-ID",
+        "X-Request-ID"
+      ],
+      "exposedHeaders": [
+        "X-Request-ID"
+      ],
+      "credentials": false,
+      "maxAge": 86400,
+      "strictOriginValidation": true,
+      "secureHeadersOnly": true
+    }
+  },
+  "customRules": {
+    "api_endpoints": {
+      "paths": ["/api/v1/*"],
+      "allowedOrigins": ["https://app.school-erp.com"],
+      "allowedMethods": ["GET", "POST", "PUT", "PATCH", "DELETE"],
+      "credentials": true
+    },
+    "public_endpoints": {
+      "paths": ["/health", "/status", "/docs"],
+      "allowedOrigins": ["*"],
+      "allowedMethods": ["GET", "HEAD"],
+      "credentials": false
+    },
+    "webhook_endpoints": {
+      "paths": ["/webhooks/*"],
+      "allowedOrigins": [
+        "https://hooks.stripe.com",
+        "https://api.sendgrid.com",
+        "https://hooks.slack.com"
+      ],
+      "allowedMethods": ["POST"],
+      "credentials": false
+    }
+  }
+}

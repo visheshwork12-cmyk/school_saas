@@ -1,0 +1,54 @@
+# .github/workflows/documentation.yml
+name: Documentation Maintenance
+
+on:
+  push:
+    branches: [main, develop]
+    paths: 
+      - 'src/domain/models/**'
+      - 'src/api/**'
+      - 'docs/**'
+  pull_request:
+    branches: [main]
+
+jobs:
+  validate-docs:
+    runs-on: ubuntu-latest
+    steps:
+    - uses: actions/checkout@v3
+    
+    - name: Setup Node.js
+      uses: actions/setup-node@v3
+      with:
+        node-version: '18'
+        
+    - name: Install dependencies
+      run: npm install
+      
+    - name: Validate Phase 2 Documentation
+      run: |
+        chmod +x scripts/verify-phase2-docs.sh
+        ./scripts/verify-phase2-docs.sh
+        
+    - name: Run Documentation Validation
+      run: node scripts/validate-documentation.js
+      
+    - name: Check Documentation Sync
+      run: node scripts/doc-lifecycle.js
+      
+    - name: Auto-update Documentation
+      run: |
+        npm run docs:auto-update
+        
+    - name: Create PR for Documentation Updates
+      if: github.event_name == 'push'
+      uses: peter-evans/create-pull-request@v5
+      with:
+        token: ${{ secrets.GITHUB_TOKEN }}
+        commit-message: 'docs: auto-update documentation'
+        title: 'Auto-update Documentation'
+        body: |
+          This PR contains automatically generated documentation updates based on recent code changes.
+          
+          Please review the changes and merge if they look correct.
+        branch: auto-docs-update

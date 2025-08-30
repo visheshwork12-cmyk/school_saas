@@ -1,0 +1,233 @@
+# monitoring/prometheus/prometheus.yml - Comprehensive metrics collection
+global:
+  scrape_interval: 15s
+  evaluation_interval: 15s
+  scrape_timeout: 10s
+  external_labels:
+    cluster: 'school-erp-cluster'
+    environment: '${ENVIRONMENT:-staging}'
+    region: '${AWS_REGION:-us-east-1}'
+
+rule_files:
+  - "alerts.yml"
+  - "recording_rules.yml"
+
+alerting:
+  alertmanagers:
+    - static_configs:
+        - targets:
+          - alertmanager:9093
+      scheme: http
+      timeout: 10s
+      api_version: v1
+
+scrape_configs:
+  # School ERP API Application
+  - job_name: 'school-erp-api'
+    static_configs:
+      - targets: ['localhost:3000']
+    metrics_path: '/metrics'
+    scrape_interval: 10s
+    scrape_timeout: 5s
+    honor_labels: false
+    honor_timestamps: true
+    scheme: http
+    params:
+      'format': ['prometheus']
+    relabel_configs:
+      - source_labels: [__address__]
+        target_label: instance
+        replacement: 'school-erp-api'
+      - source_labels: [__address__]
+        target_label: service
+        replacement: 'api'
+    metric_relabel_configs:
+      - source_labels: [__name__]
+        regex: 'school_erp_(.*)'
+        target_label: __name__
+        replacement: 'api_${1}'
+
+  # Node.js Application Metrics
+  - job_name: 'nodejs-app'
+    static_configs:
+      - targets: ['localhost:3000']
+    metrics_path: '/metrics/nodejs'
+    scrape_interval: 15s
+    relabel_configs:
+      - target_label: component
+        replacement: 'nodejs-runtime'
+
+  # System Metrics (Node Exporter)
+  - job_name: 'node-exporter'
+    static_configs:
+      - targets: ['localhost:9100']
+    scrape_interval: 15s
+    relabel_configs:
+      - source_labels: [__address__]
+        target_label: instance
+        replacement: 'school-erp-server'
+
+  # MongoDB Metrics
+  - job_name: 'mongodb-exporter'
+    static_configs:
+      - targets: ['localhost:9216']
+    scrape_interval: 30s
+    params:
+      collect.database: ['true']
+      collect.collection: ['true']
+      collect.topmetrics: ['true']
+      collect.indexusage: ['true']
+    relabel_configs:
+      - target_label: service
+        replacement: 'mongodb'
+
+  # Redis Metrics
+  - job_name: 'redis-exporter'
+    static_configs:
+      - targets: ['localhost:9121']
+    scrape_interval: 15s
+    relabel_configs:
+      - target_label: service
+        replacement: 'redis'
+
+  # Nginx/Load Balancer Metrics
+  - job_name: 'nginx-exporter'
+    static_configs:
+      - targets: ['localhost:9113']
+    scrape_interval: 15s
+    metrics_path: '/metrics'
+    relabel_configs:
+      - target_label: service
+        replacement: 'nginx'
+
+  # Container Metrics (cAdvisor)
+  - job_name: 'cadvisor'
+    static_configs:
+      - targets: ['localhost:8080']
+    scrape_interval: 15s
+    metrics_path: '/metrics'
+    relabel_configs:
+      - target_label: service
+        replacement: 'containers'
+
+  # Kubernetes Metrics (if deployed on K8s)
+  - job_name: 'kubernetes-pods'
+    kubernetes_sd_configs:
+      - role: pod
+        namespaces:
+          names:
+            - school-erp
+    relabel_configs:
+      - source_labels: [__meta_kubernetes_pod_annotation_prometheus_io_scrape]
+        action: keep
+        regex: true
+      - source_labels: [__meta_kubernetes_pod_annotation_prometheus_io_path]
+        action: replace
+        target_label: __metrics_path__
+        regex: (.+)
+      - source_labels: [__address__, __meta_kubernetes_pod_annotation_prometheus_io_port]
+        action: replace
+        regex: ([^:]+)(?::\d+)?;(\d+)
+        replacement: $1:$2
+        target_label: __address__
+      - action: labelmap
+        regex: __meta_kubernetes_pod_label_(.+)
+      - source_labels: [__meta_kubernetes_namespace]
+        action: replace
+        target_label: kubernetes_namespace
+      - source_labels: [__meta_kubernetes_pod_name]
+        action: replace
+        target_label: kubernetes_pod_name
+
+  # AWS CloudWatch Metrics (via CloudWatch Exporter)
+  - job_name: 'cloudwatch-exporter'
+    static_configs:
+      - targets: ['localhost:9106']
+    scrape_interval: 60s
+    scrape_timeout: 55s
+    relabel_configs:
+      - target_label: service
+        replacement: 'aws-cloudwatch'
+
+  # Custom Application Metrics
+  - job_name: 'school-erp-custom-metrics'
+    static_configs:
+      - targets: ['localhost:3001']
+    metrics_path: '/custom-metrics'
+    scrape_interval: 30s
+    honor_labels: true
+    params:
+      'tenant[]': ['all']
+      'detailed': ['true']
+
+  # Health Check Endpoints
+  - job_name: 'health-checks'
+    static_configs:
+      - targets: 
+        - 'localhost:3000'
+        - 'localhost:3001'
+    metrics_path: '/health/prometheus'
+    scrape_interval: 10s
+    scrape_timeout: 5s
+    relabel_configs:
+      - source_labels: [__address__]
+        regex: 'localhost:3000'
+        target_label: service
+        replacement: 'api-health'
+      - source_labels: [__address__]
+        regex: 'localhost:3001'
+        target_label: service
+        replacement: 'admin-health'
+
+  # Load Testing Metrics (development only)
+  - job_name: 'load-test-metrics'
+    static_configs:
+      - targets: ['localhost:8089']
+    scrape_interval: 5s
+    honor_labels: true
+    relabel_configs:
+      - target_label: environment
+        replacement: 'load-test'
+
+# Storage configuration
+storage:
+  tsdb:
+    path: /prometheus/data
+    retention.time: 30d
+    retention.size: 10GB
+    wal-compression: true
+    min-block-duration: 2h
+    max-block-duration: 24h
+
+# Remote write configuration (for long-term storage)
+remote_write:
+  - url: "${REMOTE_WRITE_URL}"
+    queue_config:
+      max_samples_per_send: 1000
+      max_shards: 200
+      capacity: 2500
+    write_relabel_configs:
+      - source_labels: [__name__]
+        regex: 'up|school_erp_.*'
+        action: keep
+    headers:
+      Authorization: "Bearer ${REMOTE_WRITE_TOKEN}"
+
+# Remote read configuration
+remote_read:
+  - url: "${REMOTE_READ_URL}"
+    headers:
+      Authorization: "Bearer ${REMOTE_READ_TOKEN}"
+
+# Web configuration
+web:
+  console:
+    libraries:
+      - /etc/prometheus/console_libraries
+    templates:
+      - /etc/prometheus/consoles
+  enable-lifecycle: true
+  enable-admin-api: false
+  page-title: "School ERP Monitoring"
+  cors:
+    origin: ".*"

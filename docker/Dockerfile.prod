@@ -1,0 +1,126 @@
+# docker/Dockerfile.prod - Production-optimized with security hardening
+
+# ===== BUILD STAGE =====
+FROM node:18-alpine AS builder
+
+# Set build arguments
+ARG NODE_ENV=production
+ARG BUILD_DATE
+ARG VERSION
+ARG COMMIT_SHA
+
+# Install build dependencies
+RUN apk add --no-cache \
+    python3 \
+    make \
+    g++ \
+    git \
+    curl
+
+# Set working directory
+WORKDIR /app
+
+# Copy package files
+COPY package*.json ./
+COPY yarn.lock* ./
+
+# Install production dependencies only
+RUN npm ci --only=production --no-audit --no-fund --ignore-scripts && \
+    npm cache clean --force
+
+# Copy source code
+COPY src ./src
+COPY api ./api
+
+# Remove unnecessary files
+RUN rm -rf \
+    /app/tests \
+    /app/docs \
+    /app/coverage \
+    /app/*.md \
+    /app/.git* \
+    /app/.docker* \
+    /app/.env*
+
+# ===== SECURITY SCAN STAGE =====
+FROM builder AS security-scan
+
+# Install security tools
+RUN npm install -g audit-ci
+
+# Run security audit
+RUN npm audit --audit-level moderate
+
+# ===== PRODUCTION STAGE =====
+FROM node:18-alpine AS production
+
+# Add metadata
+LABEL maintainer="School ERP Team <dev@school-erp.com>"
+LABEL version="${VERSION}"
+LABEL build-date="${BUILD_DATE}"
+LABEL commit-sha="${COMMIT_SHA}"
+LABEL description="School ERP SaaS - Production"
+
+# Install only runtime dependencies
+RUN apk add --no-cache \
+    dumb-init \
+    curl \
+    ca-certificates \
+    tzdata && \
+    apk upgrade --no-cache
+
+# Remove package manager to reduce attack surface
+RUN rm -rf /var/cache/apk/* && \
+    rm -rf /usr/share/man/* && \
+    rm -rf /tmp/*
+
+# Set timezone
+ENV TZ=UTC
+RUN ln -snf /usr/share/zoneinfo/$TZ /etc/localtime && echo $TZ > /etc/timezone
+
+# Create app directory
+WORKDIR /app
+
+# Create non-root user with specific UID
+RUN addgroup -g 1001 -S nodejs && \
+    adduser -S school-erp -u 1001 -G nodejs
+
+# Copy built application from builder
+COPY --from=builder --chown=school-erp:nodejs /app/node_modules ./node_modules
+COPY --from=builder --chown=school-erp:nodejs /app/src ./src
+COPY --from=builder --chown=school-erp:nodejs /app/api ./api
+COPY --from=builder --chown=school-erp:nodejs /app/package*.json ./
+
+# Create necessary directories with proper permissions
+RUN mkdir -p \
+    /app/logs \
+    /app/temp \
+    /app/uploads && \
+    chown -R school-erp:nodejs /app && \
+    chmod -R 755 /app && \
+    chmod -R 700 /app/logs /app/temp /app/uploads
+
+# Set production environment variables
+ENV NODE_ENV=production
+ENV PORT=3000
+ENV DEPLOYMENT_TYPE=docker
+ENV NODE_OPTIONS="--max-old-space-size=2048"
+
+# Security: Remove write permissions from application code
+RUN chmod -R a-w /app/src /app/api /app/node_modules
+
+# Switch to non-root user
+USER school-erp
+
+# Expose port
+EXPOSE 3000
+
+# Enhanced health check for production
+HEALTHCHECK --interval=30s --timeout=15s --start-period=120s --retries=5 \
+    CMD curl -f http://localhost:3000/health || exit 1
+
+# Use dumb-init for proper signal handling
+ENTRYPOINT ["dumb-init", "--"]
+
+# Start application
+CMD ["node", "src/server.js"]
