@@ -1,4 +1,4 @@
-// src/app.js - Enhanced for hybrid deployment with better error handling
+// src/app.js - Enhanced for hybrid deployment with better error handling - FIXED VERSION
 import express from 'express';
 import helmet from 'helmet';
 import cors from 'cors';
@@ -89,14 +89,14 @@ const createApp = async () => {
       })
     );
 
-    // Enhanced CORS configuration
+    // Enhanced CORS configuration - FIXED
     const corsOptions = {
       origin: (origin, callback) => {
         if (deploymentInfo.isServerless) {
           // More permissive for serverless
           callback(null, true);
         } else {
-          const {allowedOrigins} = baseConfig.cors;
+          const { allowedOrigins } = baseConfig.cors;
           if (!origin || allowedOrigins.includes('*') || allowedOrigins.includes(origin)) {
             callback(null, true);
           } else {
@@ -104,7 +104,7 @@ const createApp = async () => {
           }
         }
       },
-      methods: baseConfig.cors.methods,
+      methods: baseConfig.cors.methods, // Now properly configured as array in base config
       credentials: !deploymentInfo.isServerless,
       allowedHeaders: [
         'Content-Type',
@@ -135,7 +135,7 @@ const createApp = async () => {
     const jsonLimit = deploymentInfo.isServerless ? '10mb' : baseConfig.bodyParser.jsonLimit;
     const urlencodedLimit = deploymentInfo.isServerless ? '10mb' : baseConfig.bodyParser.urlencodedLimit;
 
-    app.use(express.json({ 
+    app.use(express.json({
       limit: jsonLimit,
       verify: (req, res, buf, encoding) => {
         if (buf.length > 50 * 1024 * 1024) { // 50MB hard limit
@@ -143,9 +143,9 @@ const createApp = async () => {
         }
       }
     }));
-    app.use(express.urlencoded({ 
-      extended: true, 
-      limit: urlencodedLimit 
+    app.use(express.urlencoded({
+      extended: true,
+      limit: urlencodedLimit
     }));
 
     // Compression with conditional settings
@@ -153,7 +153,9 @@ const createApp = async () => {
       level: deploymentInfo.isServerless ? 1 : baseConfig.compression.level,
       threshold: 1024,
       filter: (req, res) => {
-        if (req.headers['x-no-compression']) {return false;}
+        if (req.headers['x-no-compression']) {
+          return false;
+        }
         return compression.filter(req, res);
       }
     }));
@@ -184,7 +186,7 @@ const createApp = async () => {
           path: req.path,
           userAgent: req.get('User-Agent')
         }).catch(() => {}); // Silent fail for audit
-        
+
         res.status(429).json({
           success: false,
           error: {
@@ -216,12 +218,12 @@ const createApp = async () => {
         }
       };
 
-      res.status(HTTP_STATUS.SUCCESS.OK).json(healthCheck);
+      res.status(HTTP_STATUS.OK).json(healthCheck);
     });
 
     // Status endpoint
     app.get('/status', (req, res) => {
-      res.status(HTTP_STATUS.SUCCESS.OK).json({
+      res.status(HTTP_STATUS.OK).json({
         status: 'OK',
         uptime: process.uptime(),
         environment: baseConfig.env,
@@ -267,7 +269,7 @@ X-Tenant-ID: <your-school-id>
         },
         servers: [
           {
-            url: process.env.API_BASE_URL || (deploymentInfo.isServerless ? 
+            url: process.env.API_BASE_URL || (deploymentInfo.isServerless ?
               'https://your-project.vercel.app' : 'http://localhost:3000'),
             description: `${deploymentInfo.platform} server`
           }
@@ -303,8 +305,8 @@ X-Tenant-ID: <your-school-id>
     }
 
     // Conditionally enable documentation
-    const enableDocs = !deploymentInfo.isServerless || 
-      process.env.ENABLE_DOCS === 'true' || 
+    const enableDocs = !deploymentInfo.isServerless ||
+      process.env.ENABLE_DOCS === 'true' ||
       deploymentInfo.environment === 'development';
 
     if (enableDocs) {
@@ -392,6 +394,7 @@ X-Tenant-ID: <your-school-id>
       } catch (error) {
         logger.warn('Failed to log request start', { error: error.message });
       }
+
       next();
     });
 
@@ -415,7 +418,7 @@ X-Tenant-ID: <your-school-id>
 
     // 404 handler
     app.all('*', (req, res) => {
-      res.status(HTTP_STATUS.CLIENT_ERROR.NOT_FOUND).json({
+      res.status(HTTP_STATUS.NOT_FOUND).json({
         success: false,
         error: {
           code: 'ROUTE_NOT_FOUND',

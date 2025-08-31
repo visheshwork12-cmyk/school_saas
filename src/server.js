@@ -1,8 +1,7 @@
-// src/server.js - Production-ready hybrid server entry point
+// src/server.js - PRODUCTION-READY HYBRID SERVER - CORRECTED VERSION
 import { createServer } from 'http';
 import cluster from 'cluster';
 import os from 'os';
-
 import { logger } from '#utils/core/logger.js';
 import baseConfig from '#shared/config/environments/base.config.js';
 import { AuditService } from '#core/audit/services/audit-log.service.js';
@@ -13,7 +12,7 @@ import { HealthService } from '#core/monitoring/services/health.service.js';
 import { MetricsService } from '#core/monitoring/services/metrics.service.js';
 import createApp from './app.js';
 
-// Global process state
+// Global process state 
 let isShuttingDown = false;
 let server = null;
 
@@ -248,9 +247,16 @@ async function gracefulShutdown(signal) {
       );
     }
 
-    await CacheService.shutdown().catch(err =>
-      logger.warn('Cache service shutdown error', { error: err.message })
-    );
+    // ✅ FIXED: Handle CacheService shutdown gracefully
+    try {
+      if (CacheService && typeof CacheService.shutdown === 'function') {
+        await CacheService.shutdown();
+      } else {
+        logger.info('CacheService shutdown not implemented, skipping...');
+      }
+    } catch (err) {
+      logger.warn('Cache service shutdown error', { error: err.message });
+    }
 
     const defaultTenantId = baseConfig.multiTenant?.defaultTenantId || 'default';
     await disconnectDatabase(defaultTenantId).catch(err =>
@@ -290,15 +296,18 @@ async function gracefulShutdown(signal) {
 }
 
 /**
- * Create app instance for serverless deployment
+ * Create app instance for serverless deployment - FIXED VERSION
  */
 export async function createServerlessApp() {
   try {
+    // ✅ FIXED: Default environment should be 'development', not 'production'
+    const environment = process.env.NODE_ENV || 'development';
+
     logger.info('⚡ Initializing serverless application...', {
       platform: process.env.VERCEL ? 'vercel' :
         process.env.NETLIFY ? 'netlify' :
           process.env.AWS_LAMBDA_FUNCTION_NAME ? 'aws-lambda' : 'unknown',
-      environment: process.env.NODE_ENV || 'production'
+      environment: environment  // ✅ Now will show 'development' by default
     });
 
     // Initialize core services for serverless
@@ -329,6 +338,9 @@ export async function createServerlessApp() {
     throw error;
   }
 }
+
+// Rest of the file remains the same...
+
 
 /**
  * Start clustered server for production

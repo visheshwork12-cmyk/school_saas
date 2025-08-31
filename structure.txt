@@ -289,8 +289,7 @@
 │       ├── alerts.yml
 │       ├── prometheus.yml
 │       ├── rules.yml
-│       ├── school-erp-metrics.js
-│       └── show
+│       └── school-erp-metrics.js
 ├── netlify.toml
 ├── nodemon.json
 ├── package-lock.json
@@ -345,6 +344,7 @@
 │   │   └── setup-monitoring.js
 │   ├── setup
 │   │   ├── env-manager.js
+│   │   ├── post-install.js
 │   │   └── quick-start.sh
 │   ├── switch-environment.sh
 │   ├── test-db-connection.js
@@ -844,6 +844,10 @@
 │   │   │   ├── school.factory.js
 │   │   │   ├── subscription.factory.js
 │   │   │   └── user.factory.js
+│   │   ├── monitoring
+│   │   │   └── services
+│   │   │       ├── health.service.js
+│   │   │       └── metrics.service.js
 │   │   ├── products
 │   │   │   ├── factories
 │   │   │   │   └── product.factory.js
@@ -1188,7 +1192,8 @@
 │       │   ├── success-messages.js
 │       │   └── validation-rules.js
 │       ├── database
-│       │   └── connection-manager.js
+│       │   ├── connection-manager.js
+│       │   └── serverless-connection.js
 │       ├── decorators
 │       │   ├── audit.decorator.js
 │       │   ├── cache.decorator.js
@@ -1468,4 +1473,4 @@
 ├── vercel.json
 └── yarn.lock
 
-442 directories, 1027 files
+444 directories, 1030 files

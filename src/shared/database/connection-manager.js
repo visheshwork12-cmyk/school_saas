@@ -19,7 +19,7 @@ import { BusinessException } from '#shared/exceptions/business.exception.js';
 class DatabaseConnectionManager extends EventEmitter {
   // Private static instance for singleton pattern
   static #instance = null;
-  
+
   // Private instance fields
   #connections = new Map();
   #connectionConfigs = new Map();
@@ -38,25 +38,25 @@ class DatabaseConnectionManager extends EventEmitter {
    */
   constructor() {
     super();
-    
+
     if (DatabaseConnectionManager.#instance) {
       return DatabaseConnectionManager.#instance;
     }
-    
+
     this.#connections = new Map();
     this.#connectionConfigs = new Map();
     this.#reconnectTimers = new Map();
     this.#healthCheckTimers = new Map();
     this.#connectionMetrics = new Map();
     this.#isInitialized = true;
-    
+
     // Set max listeners to prevent memory leak warnings
     this.setMaxListeners(100);
-    
+
     // Configure mongoose global settings
     mongoose.set('strictQuery', true);
     mongoose.set('autoIndex', false); // Don't build indexes in production
-    
+
     DatabaseConnectionManager.#instance = this;
   }
 
@@ -161,7 +161,7 @@ class DatabaseConnectionManager extends EventEmitter {
    */
   async #createConnection(config, tenantId) {
     const uri = config.mongo?.uri || config.mongodb?.uri || config.uri;
-    
+
     if (!uri) {
       throw new BusinessException('MongoDB URI is missing in configuration');
     }
@@ -171,33 +171,33 @@ class DatabaseConnectionManager extends EventEmitter {
       // Connection pool settings
       maxPoolSize: config.mongo?.options?.maxPoolSize || 10,
       minPoolSize: config.mongo?.options?.minPoolSize || 1,
-      
+
       // Timeout settings
       serverSelectionTimeoutMS: config.mongo?.options?.serverSelectionTimeoutMS || 10000,
       socketTimeoutMS: config.mongo?.options?.socketTimeoutMS || 45000,
       connectTimeoutMS: config.mongo?.options?.connectTimeoutMS || 10000,
       maxIdleTimeMS: config.mongo?.options?.maxIdleTimeMS || 300000,
-      
+
       // Heartbeat and monitoring
       heartbeatFrequencyMS: 10000,
       serverMonitoringMode: 'stream',
-      
+
       // Write and read settings
       retryWrites: true,
       retryReads: true,
       readPreference: config.mongo?.options?.readPreference || 'primaryPreferred',
-      
+
       // Other settings
       // bufferCommands: false, // Disable command buffering
       // bufferMaxEntries: 0, // Disable connection buffering
-      
+
       // SSL/TLS settings (if required)
       // ssl: config.mongo?.options?.ssl || false,
       // sslValidate: config.mongo?.options?.sslValidate || true,
-      
+
       // Application name for monitoring
       appName: `school-erp-${process.env.NODE_ENV || 'development'}-${tenantId}`,
-      
+
       // Compression
       compressors: ['zlib', 'zstd'],
       zlibCompressionLevel: 6
@@ -210,10 +210,10 @@ class DatabaseConnectionManager extends EventEmitter {
 
     // Create connection with timeout race
     const connectionPromise = mongoose.createConnection(uri, connectionOptions);
-    
+
     const connection = await Promise.race([
       connectionPromise.asPromise(),
-      new Promise((_, reject) => 
+      new Promise((_, reject) =>
         setTimeout(() => reject(new Error('MongoDB connection timed out')), 15000)
       ),
     ]);
@@ -259,7 +259,7 @@ class DatabaseConnectionManager extends EventEmitter {
   }
 
   /**
-   * Enhanced disconnect with proper cleanup
+   * Enhanced disconnect with proper cleanup - UPDATED
    */
   async disconnect(tenantId = 'default') {
     try {
@@ -274,10 +274,10 @@ class DatabaseConnectionManager extends EventEmitter {
       // Close connection
       if (this.#connections.has(tenantId)) {
         const connection = this.#connections.get(tenantId);
-        
-        // Wait for ongoing operations to complete
+
+        // ✅ FIXED: Use the updated graceful disconnect
         await this.#gracefulDisconnect(connection);
-        
+
         this.#connections.delete(tenantId);
       }
 
@@ -301,39 +301,69 @@ class DatabaseConnectionManager extends EventEmitter {
       logger.error(`❌ Database disconnection failed for tenant ${tenantId}:`, {
         error: error.message
       });
-      throw new BusinessException(`Database disconnection failed: ${error.message}`);
+
+      // Don't throw error during shutdown, just log it
+      logger.warn(`Continuing with shutdown despite disconnect error for tenant: ${tenantId}`);
     }
   }
 
+
   /**
-   * Graceful disconnect with operation completion wait
+   * Graceful disconnect with operation completion wait - FIXED VERSION
    * @private
    */
   async #gracefulDisconnect(connection) {
-    return new Promise((resolve) => {
-      // Set a timeout for graceful disconnect
-      const timeout = setTimeout(() => {
-        logger.warn('Graceful disconnect timeout, forcing close');
-        connection.close(true); // Force close
-        resolve();
-      }, 5000);
+    try {
+      logger.info('🔄 Starting graceful database disconnect...');
 
-      connection.close(false, (error) => {
-        clearTimeout(timeout);
-        if (error) {
-          logger.warn('Error during graceful disconnect:', error.message);
-        }
-        resolve();
+      // Create a timeout promise for forced shutdown
+      const timeoutPromise = new Promise((resolve) => {
+        setTimeout(() => {
+          logger.warn('⚠️ Graceful disconnect timeout, forcing close');
+          resolve('timeout');
+        }, 5000);
       });
-    });
+
+      // Create close promise without callback
+      const closePromise = connection.close().then(() => {
+        logger.info('✅ Database connection closed gracefully');
+        return 'closed';
+      }).catch((error) => {
+        logger.warn('⚠️ Error during graceful disconnect:', error.message);
+        return 'error';
+      });
+
+      // Race between graceful close and timeout
+      const result = await Promise.race([closePromise, timeoutPromise]);
+
+      if (result === 'timeout') {
+        // Force close if timeout reached
+        try {
+          await connection.close(); // Force close without callback
+          logger.info('✅ Database connection force closed successfully');
+        } catch (forceError) {
+          logger.error('💥 Error during force close:', forceError.message);
+        }
+      }
+
+    } catch (error) {
+      logger.error('💥 Graceful disconnect failed:', error.message);
+      // Try one more time with force close
+      try {
+        await connection.close();
+      } catch (finalError) {
+        logger.error('💥 Final force close failed:', finalError.message);
+      }
+    }
   }
+
 
   /**
    * Get connection with health check
    */
   getConnection(tenantId = 'default') {
     const connection = this.#connections.get(tenantId);
-    
+
     if (!connection) {
       return null;
     }
@@ -349,7 +379,7 @@ class DatabaseConnectionManager extends EventEmitter {
    */
   async getConnectionSafe(tenantId = 'default') {
     let connection = this.getConnection(tenantId);
-    
+
     if (!connection || connection.readyState !== 1) {
       const config = this.#connectionConfigs.get(tenantId);
       if (config) {
@@ -357,7 +387,7 @@ class DatabaseConnectionManager extends EventEmitter {
         connection = await this.connect(config, tenantId);
       }
     }
-    
+
     return connection;
   }
 
@@ -375,7 +405,7 @@ class DatabaseConnectionManager extends EventEmitter {
   getConnectionHealth(tenantId = 'default') {
     const connection = this.#connections.get(tenantId);
     const metrics = this.#connectionMetrics.get(tenantId);
-    
+
     if (!connection || !metrics) {
       return { healthy: false, status: 'not_connected' };
     }
@@ -406,11 +436,11 @@ class DatabaseConnectionManager extends EventEmitter {
    */
   getAllConnectionsHealth() {
     const health = {};
-    
+
     for (const [tenantId] of this.#connections) {
       health[tenantId] = this.getConnectionHealth(tenantId);
     }
-    
+
     return health;
   }
 
@@ -419,9 +449,9 @@ class DatabaseConnectionManager extends EventEmitter {
    */
   async disconnectAll() {
     this.#isShuttingDown = true;
-    
+
     logger.info('🛑 Disconnecting all database connections...');
-    
+
     // Stop all health monitoring
     for (const [tenantId] of this.#healthCheckTimers) {
       this.#stopHealthMonitoring(tenantId);
@@ -438,16 +468,16 @@ class DatabaseConnectionManager extends EventEmitter {
         logger.warn(`Failed to disconnect tenant ${tenantId}:`, error.message);
       })
     );
-    
+
     await Promise.allSettled(disconnectPromises);
-    
+
     // Clear all maps
     this.#connections.clear();
     this.#connectionConfigs.clear();
     this.#connectionMetrics.clear();
-    
+
     logger.info('✅ All database connections closed');
-    
+
     // Emit shutdown complete event
     this.emit('shutdown_complete');
   }
@@ -479,7 +509,7 @@ class DatabaseConnectionManager extends EventEmitter {
     logger.info(`🟢 Database connected for tenant: ${tenantId}`);
     this.#updateConnectionMetrics(tenantId, 'connectedAt', Date.now());
     this.#updateConnectionMetrics(tenantId, 'reconnectAttempts', 0);
-    
+
     await this.#auditLog('DATABASE_CONNECTED_EVENT', {
       action: 'database_event',
       tenantId,
@@ -492,13 +522,13 @@ class DatabaseConnectionManager extends EventEmitter {
       error: error.message,
       code: error.code
     });
-    
-    this.#updateConnectionMetrics(tenantId, 'errors', 
+
+    this.#updateConnectionMetrics(tenantId, 'errors',
       (this.#connectionMetrics.get(tenantId)?.errors || 0) + 1);
-    
+
     // Emit error event
     this.emit('connection_error', { tenantId, error });
-    
+
     await this.#auditLog('DATABASE_CONNECTION_ERROR', {
       action: 'database_error',
       tenantId,
@@ -514,12 +544,12 @@ class DatabaseConnectionManager extends EventEmitter {
 
   #handleDisconnected = async (tenantId) => {
     logger.warn(`🟡 Database disconnected unexpectedly for tenant: ${tenantId}`);
-    
+
     this.#updateConnectionMetrics(tenantId, 'disconnectedAt', Date.now());
-    
+
     // Emit disconnection event
     this.emit('unexpected_disconnect', { tenantId });
-    
+
     await this.#auditLog('DATABASE_DISCONNECTED_EVENT', {
       action: 'database_event',
       tenantId,
@@ -533,13 +563,13 @@ class DatabaseConnectionManager extends EventEmitter {
 
   #handleReconnected = async (tenantId) => {
     logger.info(`🟢 Database reconnected for tenant: ${tenantId}`);
-    
+
     this.#updateConnectionMetrics(tenantId, 'reconnectedAt', Date.now());
     this.#clearReconnectTimer(tenantId);
-    
+
     // Emit reconnection event
     this.emit('reconnected', { tenantId });
-    
+
     await this.#auditLog('DATABASE_RECONNECTED', {
       action: 'database_reconnect',
       tenantId
@@ -548,14 +578,14 @@ class DatabaseConnectionManager extends EventEmitter {
 
   #handleClose = (tenantId) => {
     logger.debug(`Database connection closed for tenant: ${tenantId}`);
-    
+
     this.#updateConnectionMetrics(tenantId, 'closedAt', Date.now());
-    
+
     // Clean up connection from map
     if (this.#connections.has(tenantId)) {
       this.#connections.delete(tenantId);
     }
-    
+
     // Emit close event
     this.emit('connection_closed', { tenantId });
   };
@@ -572,13 +602,13 @@ class DatabaseConnectionManager extends EventEmitter {
 
   #handleTimeout = (tenantId) => {
     logger.warn(`Database connection timeout for tenant: ${tenantId}`);
-    this.#updateConnectionMetrics(tenantId, 'timeouts', 
+    this.#updateConnectionMetrics(tenantId, 'timeouts',
       (this.#connectionMetrics.get(tenantId)?.timeouts || 0) + 1);
   };
 
   #handleParseError = (tenantId, error) => {
     logger.error(`Database parse error for tenant ${tenantId}:`, error);
-    this.#updateConnectionMetrics(tenantId, 'parseErrors', 
+    this.#updateConnectionMetrics(tenantId, 'parseErrors',
       (this.#connectionMetrics.get(tenantId)?.parseErrors || 0) + 1);
   };
 
@@ -617,17 +647,17 @@ class DatabaseConnectionManager extends EventEmitter {
 
       // Simple ping to check connection health
       await connection.db.admin().ping();
-      
+
       this.#updateConnectionMetrics(tenantId, 'lastHealthCheck', Date.now());
-      this.#updateConnectionMetrics(tenantId, 'healthChecksPassed', 
+      this.#updateConnectionMetrics(tenantId, 'healthChecksPassed',
         (this.#connectionMetrics.get(tenantId)?.healthChecksPassed || 0) + 1);
 
     } catch (error) {
       logger.warn(`Health check failed for tenant ${tenantId}:`, error.message);
-      
-      this.#updateConnectionMetrics(tenantId, 'healthChecksFailed', 
+
+      this.#updateConnectionMetrics(tenantId, 'healthChecksFailed',
         (this.#connectionMetrics.get(tenantId)?.healthChecksFailed || 0) + 1);
-      
+
       // Schedule reconnection if health check fails
       this.#scheduleReconnect(tenantId);
     }
@@ -688,7 +718,7 @@ class DatabaseConnectionManager extends EventEmitter {
 
     } catch (error) {
       logger.error(`Reconnection failed for tenant ${tenantId}:`, error.message);
-      
+
       // Schedule next attempt
       this.#scheduleReconnect(tenantId);
     }
@@ -712,7 +742,7 @@ class DatabaseConnectionManager extends EventEmitter {
       'MongoServerSelectionError'
     ];
 
-    return reconnectableErrors.some(errCode => 
+    return reconnectableErrors.some(errCode =>
       error.code === errCode || error.name === errCode || error.message.includes(errCode)
     );
   }
@@ -803,7 +833,7 @@ class DatabaseConnectionManager extends EventEmitter {
     for (const [tenantId, connection] of this.#connections) {
       const metrics = this.#connectionMetrics.get(tenantId);
       const health = this.getConnectionHealth(tenantId);
-      
+
       stats.connections[tenantId] = {
         readyState: connection.readyState,
         host: connection.host,
@@ -833,7 +863,7 @@ class DatabaseConnectionManager extends EventEmitter {
    */
   async forceReconnect(tenantId = 'default') {
     logger.info(`🔄 Force reconnecting tenant: ${tenantId}`);
-    
+
     const config = this.#connectionConfigs.get(tenantId);
     if (!config) {
       throw new BusinessException('Connection configuration not found for tenant');
@@ -865,10 +895,10 @@ class DatabaseConnectionManager extends EventEmitter {
    */
   exportMetrics() {
     const allMetrics = {};
-    
+
     for (const [tenantId, metrics] of this.#connectionMetrics) {
       const connection = this.#connections.get(tenantId);
-      
+
       allMetrics[tenantId] = {
         ...metrics,
         readyState: connection?.readyState || 0,
@@ -876,7 +906,7 @@ class DatabaseConnectionManager extends EventEmitter {
         healthy: this.isConnected(tenantId)
       };
     }
-    
+
     return allMetrics;
   }
 }

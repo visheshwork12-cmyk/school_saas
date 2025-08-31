@@ -1,5 +1,5 @@
 #!/bin/bash
-# scripts/deploy-hybrid.sh - Universal hybrid deployment script
+# scripts/deploy-hybrid.sh - Universal hybrid deployment script - FIXED VERSION
 # Supports: Traditional, Docker, Kubernetes, AWS, Vercel, Netlify
 
 set -euo pipefail
