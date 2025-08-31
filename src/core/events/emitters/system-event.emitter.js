@@ -1,8 +1,8 @@
-import { EventEmitter as NodeEventEmitter } from 'events';
-import { logger } from '#utils/core/logger.js';
-import { AuditService } from '#core/audit/services/audit-log.service.js';
-import baseConfig from '#shared/config/environments/base.config.js';
-import { BusinessException } from '#shared/exceptions/business.exception.js';
+import { EventEmitter as NodeEventEmitter } from "events";
+import { logger } from "#utils/core/logger.js";
+import { AuditService } from "#core/audit/services/audit-log.service.js";
+import baseConfig from "#shared/config/environments/base.config.js";
+import { BusinessException } from "#shared/exceptions/business.exception.js";
 
 /**
  * @description Custom event emitter for system events
@@ -34,11 +34,15 @@ class EventEmitter extends NodeEventEmitter {
   async emit(event, payload) {
     try {
       // Log event to audit service
-      await AuditService.log('SYSTEM_EVENT_EMITTED', {
-        event,
-        payload,
-        tenantId: this.context.tenantId,
-      }, this.context);
+      await AuditService.log(
+        "SYSTEM_EVENT_EMITTED",
+        {
+          event,
+          payload,
+          tenantId: this.context.tenantId,
+        },
+        this.context,
+      );
 
       logger.debug(`Emitting event: ${event}`, {
         tenantId: this.context.tenantId,
@@ -49,16 +53,25 @@ class EventEmitter extends NodeEventEmitter {
       const result = super.emit(event, payload);
 
       if (!result) {
-        logger.warn(`No listeners for event: ${event}`, { tenantId: this.context.tenantId });
+        logger.warn(`No listeners for event: ${event}`, {
+          tenantId: this.context.tenantId,
+        });
       }
 
       return result;
     } catch (error) {
-      logger.error(`Failed to emit event: ${event}`, { error: error.message, tenantId: this.context.tenantId });
-      await AuditService.log('EVENT_EMISSION_FAILED', {
-        event,
+      logger.error(`Failed to emit event: ${event}`, {
         error: error.message,
-      }, this.context);
+        tenantId: this.context.tenantId,
+      });
+      await AuditService.log(
+        "EVENT_EMISSION_FAILED",
+        {
+          event,
+          error: error.message,
+        },
+        this.context,
+      );
       throw new BusinessException(`Event emission failed: ${event}`);
     }
   }
@@ -77,10 +90,14 @@ class EventEmitter extends NodeEventEmitter {
         logger.error(`Event listener error for ${event}: ${error.message}`, {
           tenantId: this.context.tenantId,
         });
-        await AuditService.log('EVENT_LISTENER_ERROR', {
-          event,
-          error: error.message,
-        }, this.context);
+        await AuditService.log(
+          "EVENT_LISTENER_ERROR",
+          {
+            event,
+            error: error.message,
+          },
+          this.context,
+        );
       }
     };
     return super.on(event, asyncListener);
@@ -97,13 +114,20 @@ class EventEmitter extends NodeEventEmitter {
       try {
         await listener(...args);
       } catch (error) {
-        logger.error(`One-time event listener error for ${event}: ${error.message}`, {
-          tenantId: this.context.tenantId,
-        });
-        await AuditService.log('EVENT_LISTENER_ERROR', {
-          event,
-          error: error.message,
-        }, this.context);
+        logger.error(
+          `One-time event listener error for ${event}: ${error.message}`,
+          {
+            tenantId: this.context.tenantId,
+          },
+        );
+        await AuditService.log(
+          "EVENT_LISTENER_ERROR",
+          {
+            event,
+            error: error.message,
+          },
+          this.context,
+        );
       }
     };
     return super.once(event, asyncListener);

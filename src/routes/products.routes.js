@@ -1,6 +1,6 @@
-import { Router } from 'express';
-import { logger } from '#utils/core/logger.js';
-import { subscriptionGate } from '#shared/middleware/access-control/subscription-gate.middleware.js';
+import { Router } from "express";
+import { logger } from "#utils/core/logger.js";
+import { subscriptionGate } from "#shared/middleware/access-control/subscription-gate.middleware.js";
 
 /**
  * @description Router for product-specific endpoints
@@ -9,7 +9,7 @@ import { subscriptionGate } from '#shared/middleware/access-control/subscription
 const productsRoutes = Router();
 
 // Apply subscription gate for product routes
-productsRoutes.use(subscriptionGate('PRODUCT_ACCESS'));
+productsRoutes.use(subscriptionGate("PRODUCT_ACCESS"));
 
 // Placeholder for product-specific routes
 // productsRoutes.use('/academic', academicRoutes);

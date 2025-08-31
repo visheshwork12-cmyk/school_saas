@@ -1,7 +1,7 @@
 // src/core/cache/services/unified-cache.service.js - FIXED VERSION
-import NodeCache from 'node-cache';
-import { logger } from '#utils/core/logger.js';
-import { BusinessException } from '#shared/exceptions/business.exception.js';
+import NodeCache from "node-cache";
+import { logger } from "#utils/core/logger.js";
+import { BusinessException } from "#shared/exceptions/business.exception.js";
 
 /**
  * @description FIXED Unified Cache Service with proper configuration handling
@@ -43,9 +43,9 @@ class CacheService {
    */
   static async initialize(config) {
     const instance = CacheService.getInstance();
-    
+
     if (instance.#isInitialized) {
-      logger.debug('Cache service already initialized');
+      logger.debug("Cache service already initialized");
       return;
     }
 
@@ -55,14 +55,14 @@ class CacheService {
         ttl: config?.cache?.ttl || 600,
         checkperiod: config?.cache?.checkperiod || 60,
         maxKeys: config?.cache?.maxKeys || 10000,
-        redisUrl: config?.redis?.url || null
+        redisUrl: config?.redis?.url || null,
       };
 
-      logger.debug('Initializing cache service with config:', {
+      logger.debug("Initializing cache service with config:", {
         ttl: instance.#config.ttl,
         checkperiod: instance.#config.checkperiod,
         maxKeys: instance.#config.maxKeys,
-        redisEnabled: !!instance.#config.redisUrl
+        redisEnabled: !!instance.#config.redisUrl,
       });
 
       // Initialize NodeCache (in-memory)
@@ -72,44 +72,49 @@ class CacheService {
         maxKeys: instance.#config.maxKeys,
         useClones: false, // Better performance
         deleteOnExpire: true,
-        enableLegacyCallbacks: false
+        enableLegacyCallbacks: false,
       });
 
       // Setup NodeCache event handlers
-      instance.#nodeCache.on('set', (key, value) => {
+      instance.#nodeCache.on("set", (key) => {
         logger.debug(`Cache SET: ${key}`);
       });
 
-      instance.#nodeCache.on('del', (key, value) => {
+      instance.#nodeCache.on("del", (key) => {
         logger.debug(`Cache DEL: ${key}`);
       });
 
-      instance.#nodeCache.on('expired', (key, value) => {
+      instance.#nodeCache.on("expired", (key) => {
         logger.debug(`Cache EXPIRED: ${key}`);
       });
+
 
       // FIXED: Optional Redis initialization with error handling
       if (instance.#config.redisUrl) {
         try {
           await instance.#initializeRedis(instance.#config.redisUrl);
         } catch (redisError) {
-          logger.warn('Redis initialization failed, falling back to memory cache only', {
-            error: redisError.message
-          });
+          logger.warn(
+            "Redis initialization failed, falling back to memory cache only",
+            {
+              error: redisError.message,
+            },
+          );
           // Don't throw error - continue with memory cache only
         }
       }
 
       instance.#isInitialized = true;
-      logger.info('Cache service initialized successfully', {
+      logger.info("Cache service initialized successfully", {
         memoryCache: true,
         redisCache: !!instance.#redisClient,
-        ttl: instance.#config.ttl
+        ttl: instance.#config.ttl,
       });
-
     } catch (error) {
-      logger.error('Cache service initialization failed:', error);
-      throw new BusinessException(`Cache initialization failed: ${error.message}`);
+      logger.error("Cache service initialization failed:", error);
+      throw new BusinessException(
+        `Cache initialization failed: ${error.message}`,
+      );
     }
   }
 
@@ -122,44 +127,43 @@ class CacheService {
   async #initializeRedis(redisUrl) {
     try {
       // Dynamic Redis import to avoid dependency issues
-      const { createClient } = await import('redis');
-      
+      const { createClient } = await import("redis");
+
       this.#redisClient = createClient({
         url: redisUrl,
         socket: {
           connectTimeout: 5000,
-          lazyConnect: true
+          lazyConnect: true,
         },
         retryDelayOnFailover: 100,
         retryDelayOnClusterDown: 100,
-        maxRetriesPerRequest: 3
+        maxRetriesPerRequest: 3,
       });
 
-      this.#redisClient.on('error', (error) => {
-        logger.error('Redis client error:', error);
+      this.#redisClient.on("error", (error) => {
+        logger.error("Redis client error:", error);
       });
 
-      this.#redisClient.on('connect', () => {
-        logger.debug('Redis client connected');
+      this.#redisClient.on("connect", () => {
+        logger.debug("Redis client connected");
       });
 
-      this.#redisClient.on('ready', () => {
-        logger.info('Redis client ready');
+      this.#redisClient.on("ready", () => {
+        logger.info("Redis client ready");
       });
 
-      this.#redisClient.on('end', () => {
-        logger.warn('Redis client connection ended');
+      this.#redisClient.on("end", () => {
+        logger.warn("Redis client connection ended");
       });
 
       await this.#redisClient.connect();
-      
+
       // Test Redis connection
       await this.#redisClient.ping();
-      
-      logger.info('Redis cache initialized successfully');
-      
+
+      logger.info("Redis cache initialized successfully");
     } catch (error) {
-      logger.error('Redis initialization error:', error);
+      logger.error("Redis initialization error:", error);
       this.#redisClient = null;
       throw error;
     }
@@ -196,7 +200,6 @@ class CacheService {
 
       logger.debug(`Cache MISS: ${key}`);
       return null;
-
     } catch (error) {
       logger.error(`Cache GET error for key ${key}:`, error);
       return null;
@@ -222,7 +225,11 @@ class CacheService {
       // Set in Redis if available
       if (this.#redisClient) {
         try {
-          await this.#redisClient.setEx(key, effectiveTtl, JSON.stringify(value));
+          await this.#redisClient.setEx(
+            key,
+            effectiveTtl,
+            JSON.stringify(value),
+          );
         } catch (redisError) {
           logger.warn(`Redis SET error for key ${key}:`, redisError.message);
         }
@@ -233,7 +240,6 @@ class CacheService {
       }
 
       return memoryResult;
-
     } catch (error) {
       logger.error(`Cache SET error for key ${key}:`, error);
       return false;
@@ -266,7 +272,6 @@ class CacheService {
       }
 
       return memoryDeleted;
-
     } catch (error) {
       logger.error(`Cache DEL error for key ${key}:`, error);
       return false;
@@ -289,15 +294,14 @@ class CacheService {
         try {
           await this.#redisClient.flushAll();
         } catch (redisError) {
-          logger.warn('Redis FLUSH error:', redisError.message);
+          logger.warn("Redis FLUSH error:", redisError.message);
         }
       }
 
-      logger.info('Cache cleared successfully');
+      logger.info("Cache cleared successfully");
       return true;
-
     } catch (error) {
-      logger.error('Cache CLEAR error:', error);
+      logger.error("Cache CLEAR error:", error);
       return false;
     }
   }
@@ -317,30 +321,29 @@ class CacheService {
           hits: memoryStats.hits,
           misses: memoryStats.misses,
           ksize: memoryStats.ksize,
-          vsize: memoryStats.vsize
+          vsize: memoryStats.vsize,
         },
         redis: null,
         config: {
           ttl: this.#config.ttl,
           maxKeys: this.#config.maxKeys,
-          redisEnabled: !!this.#redisClient
-        }
+          redisEnabled: !!this.#redisClient,
+        },
       };
 
       // Get Redis stats if available
       if (this.#redisClient) {
         try {
-          const redisInfo = await this.#redisClient.info('stats');
+          const redisInfo = await this.#redisClient.info("stats");
           stats.redis = { info: redisInfo };
         } catch (redisError) {
-          logger.warn('Redis STATS error:', redisError.message);
+          logger.warn("Redis STATS error:", redisError.message);
         }
       }
 
       return stats;
-
     } catch (error) {
-      logger.error('Cache STATS error:', error);
+      logger.error("Cache STATS error:", error);
       return { error: error.message };
     }
   }
@@ -358,7 +361,9 @@ class CacheService {
       if (this.#redisClient) {
         try {
           const exists = await this.#redisClient.exists(key);
-          if (exists) {return true;}
+          if (exists) {
+            return true;
+          }
         } catch (redisError) {
           logger.warn(`Redis EXISTS error for key ${key}:`, redisError.message);
         }
@@ -366,7 +371,6 @@ class CacheService {
 
       // Check memory cache
       return this.#nodeCache.has(key);
-
     } catch (error) {
       logger.error(`Cache HAS error for key ${key}:`, error);
       return false;
@@ -392,12 +396,11 @@ class CacheService {
 
       // Compute value
       const computedValue = await computeFn();
-      
+
       // Set in cache
       await this.set(key, computedValue, ttl);
-      
-      return computedValue;
 
+      return computedValue;
     } catch (error) {
       logger.error(`Cache GET_OR_SET error for key ${key}:`, error);
       // Return computed value even if caching fails
@@ -425,10 +428,9 @@ class CacheService {
       }
 
       this.#isInitialized = false;
-      logger.info('Cache service shutdown completed');
-
+      logger.info("Cache service shutdown completed");
     } catch (error) {
-      logger.error('Cache shutdown error:', error);
+      logger.error("Cache shutdown error:", error);
     }
   }
 
@@ -438,7 +440,9 @@ class CacheService {
    */
   #ensureInitialized() {
     if (!this.#isInitialized) {
-      throw new BusinessException('Cache service not initialized. Call CacheService.initialize() first.');
+      throw new BusinessException(
+        "Cache service not initialized. Call CacheService.initialize() first.",
+      );
     }
   }
 

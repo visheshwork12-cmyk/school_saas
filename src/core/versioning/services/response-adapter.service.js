@@ -1,10 +1,10 @@
-import { V1Adapter } from '#core/versioning/adapters/v1-adapter.js';
-import { V2Adapter } from '#core/versioning/adapters/v2-adapter.js';
-import { logger } from '#utils/core/logger.js';
-import baseConfig from '#shared/config/environments/base.config.js';
-import { BusinessException } from '#exceptions/business.exception.js';
-import { AuditService } from '#core/audit/services/audit-log.service.js'; // Assume exists
-import semver from 'semver';
+import { V1Adapter } from "#core/versioning/adapters/v1-adapter.js";
+import { V2Adapter } from "#core/versioning/adapters/v2-adapter.js";
+import { logger } from "#utils/core/logger.js";
+import baseConfig from "#shared/config/environments/base.config.js";
+import { BusinessException } from "#exceptions/business.exception.js";
+import { AuditService } from "#core/audit/services/audit-log.service.js"; // Assume exists
+import semver from "semver";
 
 /**
  * @description Service for adapting responses based on client version
@@ -17,15 +17,20 @@ class ResponseAdapterService {
    * @returns {Object} Adapter instance
    */
   static getAdapter(clientVersion, context = {}) {
-    const majorVersion = semver.major(clientVersion) || '1';
+    const majorVersion = semver.major(clientVersion) || "1";
     switch (majorVersion.toString()) {
-      case '1':
+      case "1":
         return new V1Adapter(clientVersion, context);
-      case '2':
+      case "2":
         return new V2Adapter(clientVersion, context);
       default:
-        logger.warn(`Unsupported version: ${clientVersion}, falling back to v1`);
-        AuditService.log('UNSUPPORTED_VERSION', { clientVersion, requestId: context.requestId });
+        logger.warn(
+          `Unsupported version: ${clientVersion}, falling back to v1`,
+        );
+        AuditService.log("UNSUPPORTED_VERSION", {
+          clientVersion,
+          requestId: context.requestId,
+        });
         return new V1Adapter(baseConfig.versioning.defaultVersion, context);
     }
   }
@@ -39,7 +44,7 @@ class ResponseAdapterService {
   static async transformResponse(data, context) {
     try {
       if (!context.clientVersion) {
-        logger.warn('No client version provided, returning raw data');
+        logger.warn("No client version provided, returning raw data");
         return data;
       }
 
@@ -49,8 +54,10 @@ class ResponseAdapterService {
       const duration = Number(process.hrtime.bigint() - startTime) / 1e6;
 
       if (duration > baseConfig.versioning.slowTransformationThresholdMs) {
-        logger.warn(`Slow transformation: ${duration}ms`, { clientVersion: context.clientVersion });
-        await AuditService.log('SLOW_TRANSFORMATION', {
+        logger.warn(`Slow transformation: ${duration}ms`, {
+          clientVersion: context.clientVersion,
+        });
+        await AuditService.log("SLOW_TRANSFORMATION", {
           duration,
           clientVersion: context.clientVersion,
           requestId: context.requestId,
@@ -60,11 +67,11 @@ class ResponseAdapterService {
       return this.addVersionMetadata(transformed, context);
     } catch (error) {
       logger.error(`Response transformation error: ${error.message}`);
-      await AuditService.log('RESPONSE_TRANSFORMATION_FAILED', {
+      await AuditService.log("RESPONSE_TRANSFORMATION_FAILED", {
         error: error.message,
         requestId: context.requestId,
       });
-      throw new BusinessException('Response transformation failed');
+      throw new BusinessException("Response transformation failed");
     }
   }
 

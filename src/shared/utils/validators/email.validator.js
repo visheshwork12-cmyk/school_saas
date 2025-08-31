@@ -3,7 +3,7 @@
 /**
  * @description Utility for email validation.
  * Uses regex for format check.
- * 
+ *
  * @example
  * if (emailValidator.isValid('test@example.com')) { ... }
  */
@@ -15,10 +15,11 @@ const emailValidator = {
    */
   isValid: (email) => {
     // Sanitize input
-    const sanitized = (email || '').trim().toLowerCase();
-    const regex = /^[\w-\.]+@([\w-]+\.)+[\w-]{2,4}$/;
+    const sanitized = (email || "").trim().toLowerCase();
+    const regex = /^[\w.-]+@([\w-]+\.)+[\w-]{2,4}$/;
     return regex.test(sanitized);
   },
 };
 
 export { emailValidator };
+

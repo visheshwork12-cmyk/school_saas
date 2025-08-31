@@ -1,21 +1,21 @@
 // src/shared/utils/core/responseFormatter.js
 
-import { v4 as uuidv4 } from 'uuid';
-import moment from 'moment';
-import { logger } from '#utils/core/logger.js';
+import { v4 as uuidv4 } from "uuid";
+import moment from "moment";
+import { logger } from "#utils/core/logger.js";
 
 /**
  * @description Utility for formatting standardized API responses.
  * Ensures consistent success and error responses with metadata.
- * 
+ *
  * @typedef {Object} ResponseOptions
  * @property {Object} [pagination] - Pagination metadata.
  * @property {string} [requestId] - Request ID for tracing.
- * 
+ *
  * @example
  * // Success
  * responseFormatter.success(res, 'Operation done', data, { pagination });
- * 
+ *
  * // Error
  * responseFormatter.error(res, err, requestId);
  */
@@ -53,8 +53,8 @@ const responseFormatter = {
    */
   error: (res, err, requestId) => {
     const statusCode = err.statusCode || 500;
-    const code = err.code || 'INTERNAL_ERROR';
-    const message = err.message || 'An unexpected error occurred';
+    const code = err.code || "INTERNAL_ERROR";
+    const message = err.message || "An unexpected error occurred";
 
     const response = {
       success: false,

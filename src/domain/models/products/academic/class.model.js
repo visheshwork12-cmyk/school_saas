@@ -1,5 +1,5 @@
 // src/domain/models/class.model.js
-import { Schema, model } from 'mongoose';
+import { Schema, model } from "mongoose";
 
 /**
  * @typedef {Object} Class
@@ -22,20 +22,20 @@ import { Schema, model } from 'mongoose';
  * @property {string} createdBy - Creator's user ID
  */
 const classSchema = new Schema({
-  schoolId: { type: Schema.Types.ObjectId, ref: 'School', required: true },
+  schoolId: { type: Schema.Types.ObjectId, ref: "School", required: true },
   tenantId: { type: String, required: true, index: true },
   name: { type: String, required: true },
   code: { type: String, required: true },
   section: { type: String, required: true },
   grade: Number,
   academicYear: { type: String, required: true },
-  status: { type: String, enum: ['active', 'inactive'], default: 'active' },
-  classTeacher: { type: Schema.Types.ObjectId, ref: 'User' },
+  status: { type: String, enum: ["active", "inactive"], default: "active" },
+  classTeacher: { type: Schema.Types.ObjectId, ref: "User" },
   subjects: [
     {
-      subjectId: { type: Schema.Types.ObjectId, ref: 'Subject' },
+      subjectId: { type: Schema.Types.ObjectId, ref: "Subject" },
       subjectName: String,
-      teacher: { type: Schema.Types.ObjectId, ref: 'User' },
+      teacher: { type: Schema.Types.ObjectId, ref: "User" },
       isOptional: Boolean,
       credits: Number,
     },
@@ -51,7 +51,7 @@ const classSchema = new Schema({
         startTime: String,
         endTime: String,
         subject: String,
-        teacher: { type: Schema.Types.ObjectId, ref: 'User' },
+        teacher: { type: Schema.Types.ObjectId, ref: "User" },
         room: String,
       },
     ],
@@ -60,11 +60,11 @@ const classSchema = new Schema({
   metadata: { description: String, specialization: String, stream: String },
   createdAt: { type: Date, default: Date.now },
   updatedAt: { type: Date, default: Date.now },
-  createdBy: { type: Schema.Types.ObjectId, ref: 'User' },
+  createdBy: { type: Schema.Types.ObjectId, ref: "User" },
 });
 
 classSchema.index({ schoolId: 1, academicYear: 1, status: 1 });
 classSchema.index({ tenantId: 1, name: 1, section: 1 }, { unique: true });
 classSchema.index({ classTeacher: 1 });
 
-export const Class = model('Class', classSchema);
+export const Class = model("Class", classSchema);

@@ -1,16 +1,16 @@
 // src/shared/utils/helpers/pagination.helper.js
 
-import { logger } from '#utils/core/logger.js';
+import { logger } from "#utils/core/logger.js";
 
 /**
  * @description Helper for pagination logic.
  * Supports offset-based and cursor-based pagination.
- * 
+ *
  * @typedef {Object} PaginationOptions
  * @property {number} [page=1] - Page number (offset-based).
  * @property {number} [limit=10] - Items per page.
  * @property {string} [cursor] - Cursor for cursor-based.
- * 
+ *
  * @typedef {Object} PaginationMeta
  * @property {number} total - Total items.
  * @property {number} page - Current page.
@@ -19,7 +19,7 @@ import { logger } from '#utils/core/logger.js';
  * @property {boolean} hasPrev - Has previous page.
  * @property {string|null} nextCursor - Next cursor.
  * @property {string|null} prevCursor - Previous cursor.
- * 
+ *
  * @example
  * const { query, meta } = await paginationHelper.paginate(Model, filter, options);
  */
@@ -40,7 +40,7 @@ class PaginationHelper {
 
       if (cursor) {
         // Cursor-based for performance in large datasets
-        query = query.where('_id').gt(cursor);
+        query = query.where("_id").gt(cursor);
       } else {
         // Offset-based
         query = query.skip(skip);
@@ -55,7 +55,8 @@ class PaginationHelper {
         limit,
         hasNext: data.length === limit,
         hasPrev: page > 1,
-        nextCursor: data.length > 0 ? data[data.length - 1]._id.toString() : null,
+        nextCursor:
+          data.length > 0 ? data[data.length - 1]._id.toString() : null,
         prevCursor: null, // Implement if needed
       };
 

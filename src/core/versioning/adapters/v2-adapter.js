@@ -1,13 +1,13 @@
 // src/core/versioning/adapters/v2-adapter.js
 
-import { BaseAdapter } from '#core/versioning/adapters/base-adapter.js';
-import { FeatureToggleService } from '#core/versioning/services/feature-toggle.service.js';
-import { logger } from '#utils/core/logger.js';
+import { BaseAdapter } from "#core/versioning/adapters/base-adapter.js";
+import { FeatureToggleService } from "#core/versioning/services/feature-toggle.service.js";
+import { logger } from "#utils/core/logger.js";
 
 /**
  * @description Adapter for v2.x clients.
  * Applies v2 enhancements and transformations.
- * 
+ *
  * @example
  * const adapter = new V2Adapter(version, context);
  * const transformed = await adapter.transform(data);
@@ -21,8 +21,10 @@ class V2Adapter extends BaseAdapter {
    */
   async transformCore(data, context) {
     if (Array.isArray(data)) {
-      return await Promise.all(data.map(item => this.enhanceV2Item(item, context)));
-    } else if (typeof data === 'object') {
+      return await Promise.all(
+        data.map((item) => this.enhanceV2Item(item, context)),
+      );
+    } else if (typeof data === "object") {
       return await this.enhanceV2Item(data, context);
     }
     return data;
@@ -38,18 +40,18 @@ class V2Adapter extends BaseAdapter {
   async enhanceV2Item(item, context) {
     const enhanced = { ...item };
 
-    if (await FeatureToggleService.isFeatureEnabled('ANALYTICS', context)) {
+    if (await FeatureToggleService.isFeatureEnabled("ANALYTICS", context)) {
       enhanced.analytics = this.generateAnalytics(item, context); // Assume method
     }
 
-    if (await FeatureToggleService.isFeatureEnabled('AI_INSIGHTS', context)) {
+    if (await FeatureToggleService.isFeatureEnabled("AI_INSIGHTS", context)) {
       enhanced.aiInsights = this.generateAIInsights(item, context); // Assume method
     }
 
     enhanced.metadata = {
       lastModified: item.updatedAt,
-      version: '2.0',
-      source: 'school-erp-v2'
+      version: "2.0",
+      source: "school-erp-v2",
     };
 
     logger.debug(`v2 enhancements applied`);
@@ -68,13 +70,13 @@ class V2Adapter extends BaseAdapter {
       success: true,
       data,
       meta: {
-        version: '2.0.0',
+        version: "2.0.0",
         timestamp: new Date().toISOString(),
         requestId: context.requestId,
         totalCount: Array.isArray(data) ? data.length : 1,
-        processing_time_ms: context.processingTime,
-        features: context.enabledFeatures || []
-      }
+        processingTimeMs: context.processingTime,
+        features: context.enabledFeatures || [],
+      },
     };
   }
 }

@@ -1,11 +1,11 @@
 // src/domain/value-objects/email.vo.js
 
-import { ValidationException } from '#exceptions/validation.exception.js';
-import { emailValidator } from '#utils/validators/email.validator.js';
+import { ValidationException } from "#exceptions/validation.exception.js";
+import { emailValidator } from "#utils/validators/email.validator.js";
 
 /**
  * @description Immutable Email value object with validation.
- * 
+ *
  * @example
  * const email = new Email('test@example.com');
  * console.log(email.getDomain()); // 'example.com'
@@ -27,7 +27,7 @@ class Email {
    */
   validate(email) {
     if (!emailValidator.isValid(email)) {
-      throw new ValidationException('Invalid email format');
+      throw new ValidationException("Invalid email format");
     }
   }
 
@@ -36,7 +36,7 @@ class Email {
    * @returns {string} Domain.
    */
   getDomain() {
-    return this.value.split('@')[1];
+    return this.value.split("@")[1];
   }
 
   /**

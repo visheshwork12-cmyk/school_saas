@@ -1,18 +1,21 @@
 // src/server.js - PRODUCTION-READY HYBRID SERVER - CORRECTED VERSION
-import { createServer } from 'http';
-import cluster from 'cluster';
-import os from 'os';
-import { logger } from '#utils/core/logger.js';
-import baseConfig from '#shared/config/environments/base.config.js';
-import { AuditService } from '#core/audit/services/audit-log.service.js';
-import { connectDatabase, disconnectDatabase } from '#shared/database/connection-manager.js';
-import { CacheService } from '#core/cache/services/unified-cache.service.js';
-import { JWTManager } from '#core/auth/jwt-manager.js';
-import { HealthService } from '#core/monitoring/services/health.service.js';
-import { MetricsService } from '#core/monitoring/services/metrics.service.js';
-import createApp from './app.js';
+import { createServer } from "http";
+import cluster from "cluster";
+import os from "os";
+import { logger } from "#utils/core/logger.js";
+import baseConfig from "#shared/config/environments/base.config.js";
+import { AuditService } from "#core/audit/services/audit-log.service.js";
+import {
+  connectDatabase,
+  disconnectDatabase,
+} from "#shared/database/connection-manager.js";
+import { CacheService } from "#core/cache/services/unified-cache.service.js";
+import { JWTManager } from "#core/auth/jwt-manager.js";
+import { HealthService } from "#core/monitoring/services/health.service.js";
+import { MetricsService } from "#core/monitoring/services/metrics.service.js";
+import createApp from "./app.js";
 
-// Global process state 
+// Global process state
 let isShuttingDown = false;
 let server = null;
 
@@ -21,47 +24,47 @@ let server = null;
  */
 async function initializeCoreServices() {
   try {
-    logger.info('🔄 Initializing core services...', {
+    logger.info("🔄 Initializing core services...", {
       environment: baseConfig.env,
-      nodeVersion: process.version
+      nodeVersion: process.version,
     });
 
     // Connect to database
-    logger.info('📊 Establishing database connection...');
-    const defaultTenantId = baseConfig.multiTenant?.defaultTenantId || 'default';
-    await connectDatabase(baseConfig, defaultTenantId);
-    logger.info('✅ Database connection established');
+    logger.info("📊 Establishing database connection...");
+    // Removed defaultTenantId definition since it's not used here
+    await connectDatabase(baseConfig, baseConfig.multiTenant?.defaultTenantId || "default");
+    logger.info("✅ Database connection established");
 
     // Initialize cache service
-    logger.info('💾 Initializing cache service...');
+    logger.info("💾 Initializing cache service...");
     await CacheService.initialize(baseConfig);
-    logger.info('✅ Cache service initialized');
+    logger.info("✅ Cache service initialized");
 
     // Configure JWT manager
-    logger.info('🔐 Configuring JWT manager...');
+    logger.info("🔐 Configuring JWT manager...");
     JWTManager.configure(baseConfig);
-    logger.info('✅ JWT manager configured');
+    logger.info("✅ JWT manager configured");
 
     // Initialize monitoring services
     if (baseConfig.features?.enableMetrics) {
-      logger.info('📈 Initializing metrics service...');
+      logger.info("📈 Initializing metrics service...");
       await MetricsService.initialize();
-      logger.info('✅ Metrics service initialized');
+      logger.info("✅ Metrics service initialized");
     }
 
     if (baseConfig.features?.enableHealthChecks) {
-      logger.info('🏥 Initializing health service...');
+      logger.info("🏥 Initializing health service...");
       await HealthService.initialize();
-      logger.info('✅ Health service initialized');
+      logger.info("✅ Health service initialized");
     }
 
-    logger.info('🎉 All core services initialized successfully');
-    return { defaultTenantId };
-
+    logger.info("🎉 All core services initialized successfully");
+    // Return empty object since defaultTenantId is not needed
+    return {};
   } catch (error) {
     logger.error(`💥 Failed to initialize core services: ${error.message}`, {
       stack: error.stack,
-      environment: baseConfig.env
+      environment: baseConfig.env,
     });
     throw error;
   }
@@ -73,17 +76,17 @@ async function initializeCoreServices() {
 async function startServer(port = baseConfig.port) {
   try {
     if (isShuttingDown) {
-      logger.warn('Server startup aborted - shutdown in progress');
+      logger.warn("Server startup aborted - shutdown in progress");
       return;
     }
 
     // Initialize core services
-    const { defaultTenantId } = await initializeCoreServices();
+    await initializeCoreServices(); // No need to destructure defaultTenantId
 
     // Create Express app
-    logger.info('🏗️ Creating Express application...');
+    logger.info("🏗️ Creating Express application...");
     const app = await createApp();
-    logger.info('✅ Express application created');
+    logger.info("✅ Express application created");
 
     // Create HTTP server with enhanced configuration
     server = createServer(app);
@@ -94,49 +97,49 @@ async function startServer(port = baseConfig.port) {
     server.headersTimeout = baseConfig.server?.headersTimeout || 66000;
 
     // Enhanced server error handling
-    server.on('error', async (error) => {
-      if (error.code === 'EADDRINUSE') {
+    server.on("error", async (error) => {
+      if (error.code === "EADDRINUSE") {
         logger.error(`🚫 Port ${port} is already in use`);
 
         if (port < 65535) {
           logger.info(`🔄 Trying alternate port ${port + 1}...`);
-          await AuditService.log('SERVER_PORT_CONFLICT', {
-            action: 'start_server',
+          await AuditService.log("SERVER_PORT_CONFLICT", {
+            action: "start_server",
             originalPort: port,
             newPort: port + 1,
             error: error.message,
-          }).catch(() => { });
+          }).catch(() => {});
 
           return startServer(port + 1);
         } else {
-          logger.error('No available ports found');
+          logger.error("No available ports found");
           process.exit(1);
         }
       } else {
         logger.error(`💥 Server error: ${error.message}`, {
           code: error.code,
-          stack: error.stack
+          stack: error.stack,
         });
 
-        await AuditService.log('SERVER_ERROR', {
-          action: 'start_server',
+        await AuditService.log("SERVER_ERROR", {
+          action: "start_server",
           error: error.message,
-          code: error.code
-        }).catch(() => { });
+          code: error.code,
+        }).catch(() => {});
 
         process.exit(1);
       }
     });
 
     // Connection handling
-    server.on('connection', (socket) => {
+    server.on("connection", (socket) => {
       const { remoteAddress } = socket;
-      logger.debug('New connection established', { remoteAddress });
+      logger.debug("New connection established", { remoteAddress });
 
-      socket.on('error', (error) => {
-        logger.warn('Socket error', {
+      socket.on("error", (error) => {
+        logger.warn("Socket error", {
           remoteAddress,
-          error: error.message
+          error: error.message,
         });
       });
     });
@@ -160,37 +163,36 @@ async function startServer(port = baseConfig.port) {
       nodeVersion: process.version,
       pid: process.pid,
       memoryUsage: process.memoryUsage(),
-      uptime: process.uptime()
+      uptime: process.uptime(),
     };
 
-    logger.info('🚀 Server started successfully', serverInfo);
+    logger.info("🚀 Server started successfully", serverInfo);
     logger.info(`📍 Server URL: http://localhost:${port}`);
     logger.info(`📚 API Docs: http://localhost:${port}/api-docs`);
     logger.info(`🏥 Health Check: http://localhost:${port}/health`);
 
     // Audit log server start
-    await AuditService.log('SERVER_STARTED', {
-      action: 'start_server',
+    await AuditService.log("SERVER_STARTED", {
+      action: "start_server",
       ...serverInfo,
-      deploymentType: 'traditional'
+      deploymentType: "traditional",
     }).catch((err) => {
       logger.warn(`Failed to audit server start: ${err.message}`);
     });
 
     return server;
-
   } catch (error) {
     logger.error(`💥 Failed to start server: ${error.message}`, {
       stack: error.stack,
-      port
+      port,
     });
 
-    await AuditService.log('SERVER_START_FAILED', {
-      action: 'start_server',
+    await AuditService.log("SERVER_START_FAILED", {
+      action: "start_server",
       port,
       error: error.message,
       stack: error.stack,
-    }).catch(() => { });
+    }).catch(() => {});
 
     process.exit(1);
   }
@@ -201,7 +203,7 @@ async function startServer(port = baseConfig.port) {
  */
 async function gracefulShutdown(signal) {
   if (isShuttingDown) {
-    logger.warn('Shutdown already in progress, forcing exit...');
+    logger.warn("Shutdown already in progress, forcing exit...");
     process.exit(1);
   }
 
@@ -212,20 +214,20 @@ async function gracefulShutdown(signal) {
 
   // Force shutdown after timeout
   const forceShutdownTimer = setTimeout(() => {
-    logger.error('💥 Graceful shutdown timeout exceeded, forcing exit');
+    logger.error("💥 Graceful shutdown timeout exceeded, forcing exit");
     process.exit(1);
   }, shutdownTimeout);
 
   try {
     // Stop accepting new connections
     if (server) {
-      logger.info('🚪 Closing HTTP server...');
+      logger.info("🚪 Closing HTTP server...");
       await new Promise((resolve) => {
         server.close((error) => {
           if (error) {
-            logger.error('Error closing server', { error: error.message });
+            logger.error("Error closing server", { error: error.message });
           } else {
-            logger.info('✅ HTTP server closed');
+            logger.info("✅ HTTP server closed");
           }
           resolve();
         });
@@ -233,62 +235,61 @@ async function gracefulShutdown(signal) {
     }
 
     // Shutdown services in reverse order
-    logger.info('🔌 Shutting down services...');
+    logger.info("🔌 Shutting down services...");
 
     if (baseConfig.features?.enableMetrics) {
-      await MetricsService.shutdown().catch(err =>
-        logger.warn('Metrics service shutdown error', { error: err.message })
+      await MetricsService.shutdown().catch((err) =>
+        logger.warn("Metrics service shutdown error", { error: err.message }),
       );
     }
 
     if (baseConfig.features?.enableHealthChecks) {
-      await HealthService.shutdown().catch(err =>
-        logger.warn('Health service shutdown error', { error: err.message })
+      await HealthService.shutdown().catch((err) =>
+        logger.warn("Health service shutdown error", { error: err.message }),
       );
     }
 
-    // ✅ FIXED: Handle CacheService shutdown gracefully
     try {
-      if (CacheService && typeof CacheService.shutdown === 'function') {
+      if (CacheService && typeof CacheService.shutdown === "function") {
         await CacheService.shutdown();
       } else {
-        logger.info('CacheService shutdown not implemented, skipping...');
+        logger.info("CacheService shutdown not implemented, skipping...");
       }
     } catch (err) {
-      logger.warn('Cache service shutdown error', { error: err.message });
+      logger.warn("Cache service shutdown error", { error: err.message });
     }
 
-    const defaultTenantId = baseConfig.multiTenant?.defaultTenantId || 'default';
-    await disconnectDatabase(defaultTenantId).catch(err =>
-      logger.warn('Database disconnect error', { error: err.message })
+    // Compute defaultTenantId here where it's actually needed
+    const defaultTenantId = baseConfig.multiTenant?.defaultTenantId || "default";
+    await disconnectDatabase(defaultTenantId).catch((err) =>
+      logger.warn("Database disconnect error", { error: err.message }),
     );
 
-    logger.info('✅ All services shut down successfully');
+    logger.info("✅ All services shut down successfully");
 
     // Clear the force shutdown timer
     clearTimeout(forceShutdownTimer);
 
     // Final audit log
-    await AuditService.log('SERVER_SHUTDOWN', {
-      action: 'graceful_shutdown',
+    await AuditService.log("SERVER_SHUTDOWN", {
+      action: "graceful_shutdown",
       signal,
-      status: 'success',
-      uptime: process.uptime()
-    }).catch(() => { });
+      status: "success",
+      uptime: process.uptime(),
+    }).catch(() => {});
 
-    logger.info('👋 Graceful shutdown completed');
+    logger.info("👋 Graceful shutdown completed");
     process.exit(0);
-
   } catch (error) {
     logger.error(`💥 Error during graceful shutdown: ${error.message}`, {
-      stack: error.stack
+      stack: error.stack,
     });
 
-    await AuditService.log('SERVER_SHUTDOWN_FAILED', {
-      action: 'graceful_shutdown',
+    await AuditService.log("SERVER_SHUTDOWN_FAILED", {
+      action: "graceful_shutdown",
       signal,
       error: error.message,
-    }).catch(() => { });
+    }).catch(() => {});
 
     clearTimeout(forceShutdownTimer);
     process.exit(1);
@@ -296,18 +297,21 @@ async function gracefulShutdown(signal) {
 }
 
 /**
- * Create app instance for serverless deployment - FIXED VERSION
+ * Create app instance for serverless deployment
  */
 export async function createServerlessApp() {
   try {
-    // ✅ FIXED: Default environment should be 'development', not 'production'
-    const environment = process.env.NODE_ENV || 'development';
+    const environment = process.env.NODE_ENV || "development";
 
-    logger.info('⚡ Initializing serverless application...', {
-      platform: process.env.VERCEL ? 'vercel' :
-        process.env.NETLIFY ? 'netlify' :
-          process.env.AWS_LAMBDA_FUNCTION_NAME ? 'aws-lambda' : 'unknown',
-      environment: environment  // ✅ Now will show 'development' by default
+    logger.info("⚡ Initializing serverless application...", {
+      platform: process.env.VERCEL
+        ? "vercel"
+        : process.env.NETLIFY
+          ? "netlify"
+          : process.env.AWS_LAMBDA_FUNCTION_NAME
+            ? "aws-lambda"
+            : "unknown",
+      environment,
     });
 
     // Initialize core services for serverless
@@ -316,31 +320,31 @@ export async function createServerlessApp() {
     // Create Express app
     const app = await createApp();
 
-    logger.info('✅ Serverless application initialized successfully');
+    logger.info("✅ Serverless application initialized successfully");
 
-    await AuditService.log('SERVERLESS_APP_INITIALIZED', {
-      action: 'create_serverless_app',
+    await AuditService.log("SERVERLESS_APP_INITIALIZED", {
+      action: "create_serverless_app",
       environment: baseConfig.env,
-      deploymentType: 'serverless',
-      platform: process.env.VERCEL ? 'vercel' :
-        process.env.NETLIFY ? 'netlify' :
-          process.env.AWS_LAMBDA_FUNCTION_NAME ? 'aws-lambda' : 'unknown'
+      deploymentType: "serverless",
+      platform: process.env.VERCEL
+        ? "vercel"
+        : process.env.NETLIFY
+          ? "netlify"
+          : process.env.AWS_LAMBDA_FUNCTION_NAME
+            ? "aws-lambda"
+            : "unknown",
     }).catch((err) => {
       logger.warn(`Failed to audit serverless app init: ${err.message}`);
     });
 
     return app;
-
   } catch (error) {
     logger.error(`💥 Failed to create serverless app: ${error.message}`, {
-      stack: error.stack
+      stack: error.stack,
     });
     throw error;
   }
 }
-
-// Rest of the file remains the same...
-
 
 /**
  * Start clustered server for production
@@ -356,19 +360,20 @@ async function startClusteredServer() {
       cluster.fork();
     }
 
-    cluster.on('exit', (worker, code, signal) => {
-      logger.warn(`👷 Worker ${worker.process.pid} died (${signal || code}). Restarting...`);
+    cluster.on("exit", (worker, code, signal) => {
+      logger.warn(
+        `👷 Worker ${worker.process.pid} died (${signal || code}). Restarting...`,
+      );
       cluster.fork();
     });
 
     // Handle cluster shutdown
-    process.on('SIGTERM', () => {
-      logger.info('🏭 Shutting down cluster...');
+    process.on("SIGTERM", () => {
+      logger.info("🏭 Shutting down cluster...");
       for (const id in cluster.workers) {
         cluster.workers[id].kill();
       }
     });
-
   } else {
     // Worker process
     await startServer();
@@ -377,70 +382,71 @@ async function startClusteredServer() {
 }
 
 // Enhanced process error handling
-process.on('uncaughtException', async (error) => {
+process.on("uncaughtException", async (error) => {
   logger.error(`💥 Uncaught Exception: ${error.message}`, {
     stack: error.stack,
-    pid: process.pid
+    pid: process.pid,
   });
 
-  await AuditService.log('UNCAUGHT_EXCEPTION', {
-    action: 'system_error',
+  await AuditService.log("UNCAUGHT_EXCEPTION", {
+    action: "system_error",
     error: error.message,
     stack: error.stack,
-    pid: process.pid
-  }).catch(() => { });
+    pid: process.pid,
+  }).catch(() => {});
 
   process.exit(1);
 });
 
-process.on('unhandledRejection', async (reason, promise) => {
+process.on("unhandledRejection", async (reason, promise) => {
   logger.error(`💥 Unhandled Promise Rejection`, {
-    reason: reason?.message || reason?.toString() || 'Unknown',
+    reason: reason?.message || reason?.toString() || "Unknown",
     stack: reason?.stack,
     promise: promise.toString(),
-    pid: process.pid
+    pid: process.pid,
   });
 
-  await AuditService.log('UNHANDLED_REJECTION', {
-    action: 'system_error',
-    reason: reason?.message || reason?.toString() || 'Unknown',
+  await AuditService.log("UNHANDLED_REJECTION", {
+    action: "system_error",
+    reason: reason?.message || reason?.toString() || "Unknown",
     stack: reason?.stack,
-    pid: process.pid
-  }).catch(() => { });
+    pid: process.pid,
+  }).catch(() => {});
 
   process.exit(1);
 });
 
-
 // Register graceful shutdown handlers
-process.on('SIGTERM', () => gracefulShutdown('SIGTERM'));
-process.on('SIGINT', () => gracefulShutdown('SIGINT'));
-process.on('SIGUSR2', () => gracefulShutdown('SIGUSR2')); // Nodemon restart
+process.on("SIGTERM", () => gracefulShutdown("SIGTERM"));
+process.on("SIGINT", () => gracefulShutdown("SIGINT"));
+process.on("SIGUSR2", () => gracefulShutdown("SIGUSR2")); // Nodemon restart
 
 // 🔸 DEPLOYMENT TYPE DETECTION & STARTUP
-const deploymentType = process.env.DEPLOYMENT_TYPE || 'traditional';
-const isServerless = deploymentType === 'serverless' ||
+const deploymentType = process.env.DEPLOYMENT_TYPE || "traditional";
+const isServerless =
+  deploymentType === "serverless" ||
   process.env.VERCEL ||
   process.env.NETLIFY ||
   process.env.AWS_LAMBDA_FUNCTION_NAME;
 
 // Only start server if not in serverless mode and not in test environment
-if (!isServerless && process.env.NODE_ENV !== 'test') {
-  const enableClustering = baseConfig.clustering?.enabled &&
-    process.env.NODE_ENV === 'production' &&
+if (!isServerless && process.env.NODE_ENV !== "test") {
+  const enableClustering =
+    baseConfig.clustering?.enabled &&
+    process.env.NODE_ENV === "production" &&
     !process.env.DISABLE_CLUSTERING;
 
   if (enableClustering) {
-    logger.info('🏭 Starting clustered server...');
+    logger.info("🏭 Starting clustered server...");
     startClusteredServer();
   } else {
-    logger.info('🏗️ Starting traditional server...');
+    logger.info("🏗️ Starting traditional server...");
     startServer();
   }
 } else if (isServerless) {
-  logger.info('⚡ Serverless mode detected - server startup skipped');
+  logger.info("⚡ Serverless mode detected - server startup skipped");
 } else {
-  logger.info('🧪 Test mode detected - server startup skipped');
+  logger.info("🧪 Test mode detected - server startup skipped");
 }
 
 // Export functions for different deployment scenarios
@@ -448,5 +454,5 @@ export {
   startServer,
   initializeCoreServices,
   gracefulShutdown,
-  startClusteredServer
+  startClusteredServer,
 };

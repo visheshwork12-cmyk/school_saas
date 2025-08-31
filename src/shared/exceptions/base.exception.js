@@ -3,7 +3,7 @@
 /**
  * @description Base exception class for all custom errors.
  * Includes status code, error code, and operational flag.
- * 
+ *
  * @example
  * throw new BaseException('Error occurred', 500, 'SERVER_ERROR');
  */

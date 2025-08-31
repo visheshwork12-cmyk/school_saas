@@ -1,9 +1,9 @@
-import mongoose from 'mongoose';
-import { logger } from '#utils/core/logger.js';
-import baseConfig from '#shared/config/environments/base.config.js';
-import { CacheService } from '#core/cache/services/unified-cache.service.js';
-import { BusinessException } from '#shared/exceptions/business.exception.js';
-import HTTP_STATUS from '#constants/http-status.js';
+import mongoose from "mongoose";
+import { logger } from "#utils/core/logger.js";
+import baseConfig from "#shared/config/environments/base.config.js";
+import { CacheService } from "#core/cache/services/unified-cache.service.js";
+import { BusinessException } from "#shared/exceptions/business.exception.js";
+import HTTP_STATUS from "#constants/http-status.js";
 
 /**
  * @description Schema for audit logs
@@ -13,20 +13,20 @@ const auditLogSchema = new mongoose.Schema(
   {
     eventType: { type: String, required: true, index: true },
     tenantId: { type: String, required: true, index: true },
-    userId: { type: mongoose.Schema.Types.ObjectId, ref: 'User', index: true },
+    userId: { type: mongoose.Schema.Types.ObjectId, ref: "User", index: true },
     requestId: { type: String, index: true },
     action: { type: String, required: true },
     details: { type: mongoose.Schema.Types.Mixed },
     ipAddress: { type: String },
     userAgent: { type: String },
-    createdAt: { type: Date, default: Date.now, index: { expires: '90d' } },
+    createdAt: { type: Date, default: Date.now, index: { expires: "90d" } },
   },
   {
     timestamps: false,
-  }
+  },
 );
 
-const AuditLogModel = mongoose.model('AuditLog', auditLogSchema);
+const AuditLogModel = mongoose.model("AuditLog", auditLogSchema);
 
 /**
  * @description Service for managing audit logs
@@ -63,7 +63,9 @@ class AuditService {
 
       // Check database readiness
       if (!this.#isDatabaseReady()) {
-        logger.warn(`Database not ready for audit log: ${eventType}`, { tenantId: auditLog.tenantId });
+        logger.warn(`Database not ready for audit log: ${eventType}`, {
+          tenantId: auditLog.tenantId,
+        });
         return;
       }
 
@@ -71,17 +73,29 @@ class AuditService {
       await AuditLogModel.create(auditLog);
 
       // Cache recent logs in Redis (production only)
-      if (baseConfig.env === 'production' && baseConfig.redis.url) {
-        const cacheKey = `audit:${context.tenantId || 'default'}:${eventType}:${context.requestId}`;
-        await CacheService.set(cacheKey, auditLog, baseConfig.cache.ttl, context.tenantId);
+      if (baseConfig.env === "production" && baseConfig.redis.url) {
+        const cacheKey = `audit:${context.tenantId || "default"}:${eventType}:${context.requestId}`;
+        await CacheService.set(
+          cacheKey,
+          auditLog,
+          baseConfig.cache.ttl,
+          context.tenantId,
+        );
       }
 
-      logger.debug(`Audit log created: ${eventType}`, { tenantId: auditLog.tenantId });
+      logger.debug(`Audit log created: ${eventType}`, {
+        tenantId: auditLog.tenantId,
+      });
     } catch (error) {
-      logger.error(`Failed to create audit log: ${error.message}`, { eventType });
+      logger.error(`Failed to create audit log: ${error.message}`, {
+        eventType,
+      });
       // Do not throw during server initialization to prevent crashes
-      if (eventType !== 'CACHE_INITIALIZED' && eventType !== 'CACHE_INIT_PARTIAL') {
-        throw new BusinessException('Audit log creation failed');
+      if (
+        eventType !== "CACHE_INITIALIZED" &&
+        eventType !== "CACHE_INIT_PARTIAL"
+      ) {
+        throw new BusinessException("Audit log creation failed");
       }
     }
   }
@@ -98,14 +112,23 @@ class AuditService {
    * @param {Object} context - Request context
    * @returns {Promise<Object[]>} Array of audit logs
    */
-  static async getLogs({ tenantId, eventType, userId, requestId, startDate, endDate }, context) {
+  static async getLogs(
+    { tenantId, eventType, userId, requestId, startDate, endDate },
+    context,
+  ) {
     try {
       // Check subscription access
-      if (!context.subscription?.plan || !this.hasAuditAccess(context.subscription.plan)) {
-        throw new BusinessException('Insufficient subscription for audit log access', HTTP_STATUS.FORBIDDEN);
+      if (
+        !context.subscription?.plan ||
+        !this.hasAuditAccess(context.subscription.plan)
+      ) {
+        throw new BusinessException(
+          "Insufficient subscription for audit log access",
+          HTTP_STATUS.FORBIDDEN,
+        );
       }
 
-      const cacheKey = `audit:logs:${tenantId}:${eventType || '*'}:${requestId || '*'}`;
+      const cacheKey = `audit:logs:${tenantId}:${eventType || "*"}:${requestId || "*"}`;
       let logs = await CacheService.get(cacheKey, tenantId);
 
       if (logs) {
@@ -113,17 +136,29 @@ class AuditService {
       }
 
       if (!this.#isDatabaseReady()) {
-        throw new BusinessException('Database not available for audit log retrieval');
+        throw new BusinessException(
+          "Database not available for audit log retrieval",
+        );
       }
 
       const query = { tenantId };
-      if (eventType) {query.eventType = eventType;}
-      if (userId) {query.userId = userId;}
-      if (requestId) {query.requestId = requestId;}
+      if (eventType) {
+        query.eventType = eventType;
+      }
+      if (userId) {
+        query.userId = userId;
+      }
+      if (requestId) {
+        query.requestId = requestId;
+      }
       if (startDate || endDate) {
         query.createdAt = {};
-        if (startDate) {query.createdAt.$gte = startDate;}
-        if (endDate) {query.createdAt.$lte = endDate;}
+        if (startDate) {
+          query.createdAt.$gte = startDate;
+        }
+        if (endDate) {
+          query.createdAt.$lte = endDate;
+        }
       }
 
       logs = await AuditLogModel.find(query)
@@ -137,8 +172,10 @@ class AuditService {
       logger.debug(`Audit logs retrieved: ${logs.length}`, { tenantId });
       return logs;
     } catch (error) {
-      logger.error(`Failed to retrieve audit logs: ${error.message}`, { tenantId });
-      throw new BusinessException('Audit log retrieval failed');
+      logger.error(`Failed to retrieve audit logs: ${error.message}`, {
+        tenantId,
+      });
+      throw new BusinessException("Audit log retrieval failed");
     }
   }
 
@@ -149,7 +186,7 @@ class AuditService {
    * @private
    */
   static hasAuditAccess(plan) {
-    const allowedPlans = ['PREMIUM'];
+    const allowedPlans = ["PREMIUM"];
     return allowedPlans.includes(plan);
   }
 
@@ -162,7 +199,9 @@ class AuditService {
   static async cleanupLogs(tenantId, beforeDate) {
     try {
       if (!this.#isDatabaseReady()) {
-        throw new BusinessException('Database not available for audit log cleanup');
+        throw new BusinessException(
+          "Database not available for audit log cleanup",
+        );
       }
 
       const result = await AuditLogModel.deleteMany({
@@ -175,7 +214,7 @@ class AuditService {
       return result.deletedCount;
     } catch (error) {
       logger.error(`Audit log cleanup failed: ${error.message}`, { tenantId });
-      throw new BusinessException('Audit log cleanup failed');
+      throw new BusinessException("Audit log cleanup failed");
     }
   }
 }

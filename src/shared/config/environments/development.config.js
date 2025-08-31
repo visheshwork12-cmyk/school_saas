@@ -1,4 +1,4 @@
-import baseConfig from './base.config.js';
+import baseConfig from "./base.config.js";
 
 /**
  * @description Enhanced development environment configuration
@@ -6,13 +6,13 @@ import baseConfig from './base.config.js';
  */
 const developmentConfig = {
   ...baseConfig,
-  env: 'development',
-  logLevel: 'debug',
+  env: "development",
+  logLevel: "debug",
 
   // Development-optimized MongoDB
   mongo: {
     ...baseConfig.mongo,
-    uri: process.env.MONGODB_URI || 'mongodb://localhost:27017/school-erp-dev',
+    uri: process.env.MONGODB_URI || "mongodb://localhost:27017/school-erp-dev",
     options: {
       ...baseConfig.mongo.options,
       maxPoolSize: 5, // Smaller pool for development
@@ -27,7 +27,7 @@ const developmentConfig = {
   // Development Redis - optional
   redis: {
     ...baseConfig.redis,
-    enabled: process.env.REDIS_ENABLED === 'true', // Optional in development
+    enabled: process.env.REDIS_ENABLED === "true", // Optional in development
     connectTimeout: 3000,
     lazyConnect: true,
   },
@@ -36,14 +36,14 @@ const developmentConfig = {
   cors: {
     ...baseConfig.cors,
     allowedOrigins: [
-      'http://localhost:3000',
-      'http://localhost:3001',
-      'http://localhost:5173', // Vite
-      'http://localhost:4200', // Angular
-      'http://127.0.0.1:3000',
-      'http://127.0.0.1:3001',
-      'http://127.0.0.1:5173',
-      'http://127.0.0.1:4200',
+      "http://localhost:3000",
+      "http://localhost:3001",
+      "http://localhost:5173", // Vite
+      "http://localhost:4200", // Angular
+      "http://127.0.0.1:3000",
+      "http://127.0.0.1:3001",
+      "http://127.0.0.1:5173",
+      "http://127.0.0.1:4200",
     ],
     credentials: true,
     dynamicOrigin: true, // Allow dynamic origins in development
@@ -63,10 +63,14 @@ const developmentConfig = {
   // Development JWT configuration
   jwt: {
     ...baseConfig.jwt,
-    accessSecret: process.env.JWT_ACCESS_SECRET || 'dev-access-secret-key-minimum-32-chars-long-for-security',
-    refreshSecret: process.env.JWT_REFRESH_SECRET || 'dev-refresh-secret-key-minimum-32-chars-long-for-security',
-    accessExpiresIn: '24h', // Longer for development convenience
-    refreshExpiresIn: '30d',
+    accessSecret:
+      process.env.JWT_ACCESS_SECRET ||
+      "dev-access-secret-key-minimum-32-chars-long-for-security",
+    refreshSecret:
+      process.env.JWT_REFRESH_SECRET ||
+      "dev-refresh-secret-key-minimum-32-chars-long-for-security",
+    accessExpiresIn: "24h", // Longer for development convenience
+    refreshExpiresIn: "30d",
     clockTolerance: 60, // More tolerant in development
   },
 
@@ -76,7 +80,7 @@ const developmentConfig = {
     ttl: 60, // 1 minute
     checkperiod: 30,
     maxKeys: 500,
-    strategy: 'memory', // Memory cache for development
+    strategy: "memory", // Memory cache for development
   },
 
   // Development-specific features
@@ -108,7 +112,7 @@ const developmentConfig = {
   // Enhanced development logging
   logging: {
     ...baseConfig.logging,
-    level: 'debug',
+    level: "debug",
     structured: false, // Human-readable logs in development
     transports: {
       console: {
@@ -129,7 +133,7 @@ const developmentConfig = {
     plans: {
       ...baseConfig.subscription.plans,
       DEVELOPMENT: {
-        features: ['ALL'],
+        features: ["ALL"],
         limits: {
           students: -1, // Unlimited
           teachers: -1,
@@ -144,7 +148,7 @@ const developmentConfig = {
   auth: {
     ...baseConfig.auth,
     maxLoginAttempts: 100, // Very lenient
-    accountLockoutDuration: '1m',
+    accountLockoutDuration: "1m",
     enableDeviceTracking: false,
     enableIpValidation: false,
     enableSuspiciousActivityDetection: false,
@@ -186,11 +190,11 @@ const developmentConfig = {
   smtp: {
     ...baseConfig.smtp,
     // Use ethereal email for testing
-    host: process.env.SMTP_HOST || 'smtp.ethereal.email',
+    host: process.env.SMTP_HOST || "smtp.ethereal.email",
     port: parseInt(process.env.SMTP_PORT) || 587,
     secure: false,
-    user: process.env.SMTP_USER || 'ethereal.user@ethereal.email',
-    pass: process.env.SMTP_PASS || 'ethereal.pass',
+    user: process.env.SMTP_USER || "ethereal.user@ethereal.email",
+    pass: process.env.SMTP_PASS || "ethereal.pass",
     queue: {
       enabled: false, // Process emails immediately in development
     },

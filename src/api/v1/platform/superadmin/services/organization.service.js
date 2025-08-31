@@ -1,14 +1,14 @@
 // src/api/v1/platform/superadmin/services/organization.service.js
 
-import { OrganizationRepository } from '#core/repositories/platform/organization.repository.js';
-import { subscriptionLifecycle } from '#core/subscription/services/subscription-lifecycle.service.js';
-import { logger } from '#utils/core/logger.js';
-import { BusinessException } from '#exceptions/business.exception.js';
+import { OrganizationRepository } from "#core/repositories/platform/organization.repository.js";
+import { subscriptionLifecycle } from "#core/subscription/services/subscription-lifecycle.service.js";
+import { logger } from "#utils/core/logger.js";
+import { BusinessException } from "#exceptions/business.exception.js";
 
 /**
  * @description Service for organization management.
  * Handles creation, subscription setup, etc.
- * 
+ *
  * @example
  * const org = await organizationService.createOrganization(data);
  */
@@ -34,7 +34,7 @@ class OrganizationService {
       return organization;
     } catch (err) {
       logger.error(`Organization creation failed: ${err.message}`);
-      throw new BusinessException('Organization creation failed');
+      throw new BusinessException("Organization creation failed");
     }
   }
 

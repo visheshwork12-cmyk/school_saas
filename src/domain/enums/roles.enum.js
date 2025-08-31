@@ -8,78 +8,78 @@
  * @description Platform-level roles (Super Admin functionality)
  */
 export const PLATFORM_ROLES = {
-  SUPER_ADMIN: 'SUPER_ADMIN',
-  PLATFORM_ADMIN: 'PLATFORM_ADMIN',
-  PLATFORM_SUPPORT: 'PLATFORM_SUPPORT',
-  PLATFORM_ANALYST: 'PLATFORM_ANALYST'
+  SUPER_ADMIN: "SUPER_ADMIN",
+  PLATFORM_ADMIN: "PLATFORM_ADMIN",
+  PLATFORM_SUPPORT: "PLATFORM_SUPPORT",
+  PLATFORM_ANALYST: "PLATFORM_ANALYST",
 };
 
 /**
  * @description Organization-level roles
  */
 export const ORGANIZATION_ROLES = {
-  ORG_OWNER: 'ORG_OWNER',
-  ORG_ADMIN: 'ORG_ADMIN',
-  ORG_MANAGER: 'ORG_MANAGER'
+  ORG_OWNER: "ORG_OWNER",
+  ORG_ADMIN: "ORG_ADMIN",
+  ORG_MANAGER: "ORG_MANAGER",
 };
 
 /**
  * @description School-level administrative roles
  */
 export const SCHOOL_ADMIN_ROLES = {
-  SCHOOL_OWNER: 'SCHOOL_OWNER',
-  SCHOOL_ADMIN: 'SCHOOL_ADMIN',
-  PRINCIPAL: 'PRINCIPAL',
-  VICE_PRINCIPAL: 'VICE_PRINCIPAL',
-  ACADEMIC_COORDINATOR: 'ACADEMIC_COORDINATOR',
-  ADMIN_STAFF: 'ADMIN_STAFF'
+  SCHOOL_OWNER: "SCHOOL_OWNER",
+  SCHOOL_ADMIN: "SCHOOL_ADMIN",
+  PRINCIPAL: "PRINCIPAL",
+  VICE_PRINCIPAL: "VICE_PRINCIPAL",
+  ACADEMIC_COORDINATOR: "ACADEMIC_COORDINATOR",
+  ADMIN_STAFF: "ADMIN_STAFF",
 };
 
 /**
  * @description Academic roles
  */
 export const ACADEMIC_ROLES = {
-  HEAD_OF_DEPARTMENT: 'HEAD_OF_DEPARTMENT',
-  SENIOR_TEACHER: 'SENIOR_TEACHER',
-  TEACHER: 'TEACHER',
-  SUBSTITUTE_TEACHER: 'SUBSTITUTE_TEACHER',
-  TEACHING_ASSISTANT: 'TEACHING_ASSISTANT',
-  LIBRARIAN: 'LIBRARIAN',
-  LAB_ASSISTANT: 'LAB_ASSISTANT'
+  HEAD_OF_DEPARTMENT: "HEAD_OF_DEPARTMENT",
+  SENIOR_TEACHER: "SENIOR_TEACHER",
+  TEACHER: "TEACHER",
+  SUBSTITUTE_TEACHER: "SUBSTITUTE_TEACHER",
+  TEACHING_ASSISTANT: "TEACHING_ASSISTANT",
+  LIBRARIAN: "LIBRARIAN",
+  LAB_ASSISTANT: "LAB_ASSISTANT",
 };
 
 /**
  * @description Student roles
  */
 export const STUDENT_ROLES = {
-  STUDENT: 'STUDENT',
-  HEAD_BOY: 'HEAD_BOY',
-  HEAD_GIRL: 'HEAD_GIRL',
-  PREFECT: 'PREFECT',
-  MONITOR: 'MONITOR'
+  STUDENT: "STUDENT",
+  HEAD_BOY: "HEAD_BOY",
+  HEAD_GIRL: "HEAD_GIRL",
+  PREFECT: "PREFECT",
+  MONITOR: "MONITOR",
 };
 
 /**
  * @description Parent/Guardian roles
  */
 export const PARENT_ROLES = {
-  PARENT: 'PARENT',
-  GUARDIAN: 'GUARDIAN',
-  EMERGENCY_CONTACT: 'EMERGENCY_CONTACT'
+  PARENT: "PARENT",
+  GUARDIAN: "GUARDIAN",
+  EMERGENCY_CONTACT: "EMERGENCY_CONTACT",
 };
 
 /**
  * @description Support staff roles
  */
 export const SUPPORT_ROLES = {
-  ACCOUNTANT: 'ACCOUNTANT',
-  CLERK: 'CLERK',
-  RECEPTIONIST: 'RECEPTIONIST',
-  SECURITY: 'SECURITY',
-  TRANSPORT_MANAGER: 'TRANSPORT_MANAGER',
-  DRIVER: 'DRIVER',
-  MAINTENANCE: 'MAINTENANCE',
-  NURSE: 'NURSE'
+  ACCOUNTANT: "ACCOUNTANT",
+  CLERK: "CLERK",
+  RECEPTIONIST: "RECEPTIONIST",
+  SECURITY: "SECURITY",
+  TRANSPORT_MANAGER: "TRANSPORT_MANAGER",
+  DRIVER: "DRIVER",
+  MAINTENANCE: "MAINTENANCE",
+  NURSE: "NURSE",
 };
 
 /**
@@ -88,24 +88,24 @@ export const SUPPORT_ROLES = {
 const ROLES = {
   // Platform roles
   ...PLATFORM_ROLES,
-  
+
   // Organization roles
   ...ORGANIZATION_ROLES,
-  
+
   // School admin roles
   ...SCHOOL_ADMIN_ROLES,
-  
+
   // Academic roles
   ...ACADEMIC_ROLES,
-  
+
   // Student roles
   ...STUDENT_ROLES,
-  
+
   // Parent roles
   ...PARENT_ROLES,
-  
+
   // Support roles
-  ...SUPPORT_ROLES
+  ...SUPPORT_ROLES,
 };
 
 /**
@@ -116,46 +116,46 @@ export const ROLE_HIERARCHIES = {
     PLATFORM_ROLES.SUPER_ADMIN,
     PLATFORM_ROLES.PLATFORM_ADMIN,
     PLATFORM_ROLES.PLATFORM_SUPPORT,
-    PLATFORM_ROLES.PLATFORM_ANALYST
+    PLATFORM_ROLES.PLATFORM_ANALYST,
   ],
-  
+
   ORGANIZATION: [
     ORGANIZATION_ROLES.ORG_OWNER,
     ORGANIZATION_ROLES.ORG_ADMIN,
-    ORGANIZATION_ROLES.ORG_MANAGER
+    ORGANIZATION_ROLES.ORG_MANAGER,
   ],
-  
+
   SCHOOL_MANAGEMENT: [
     SCHOOL_ADMIN_ROLES.SCHOOL_OWNER,
     SCHOOL_ADMIN_ROLES.SCHOOL_ADMIN,
     SCHOOL_ADMIN_ROLES.PRINCIPAL,
     SCHOOL_ADMIN_ROLES.VICE_PRINCIPAL,
     SCHOOL_ADMIN_ROLES.ACADEMIC_COORDINATOR,
-    SCHOOL_ADMIN_ROLES.ADMIN_STAFF
+    SCHOOL_ADMIN_ROLES.ADMIN_STAFF,
   ],
-  
+
   ACADEMIC_STAFF: [
     ACADEMIC_ROLES.HEAD_OF_DEPARTMENT,
     ACADEMIC_ROLES.SENIOR_TEACHER,
     ACADEMIC_ROLES.TEACHER,
     ACADEMIC_ROLES.SUBSTITUTE_TEACHER,
-    ACADEMIC_ROLES.TEACHING_ASSISTANT
+    ACADEMIC_ROLES.TEACHING_ASSISTANT,
   ],
-  
+
   STUDENTS: [
     STUDENT_ROLES.HEAD_BOY,
     STUDENT_ROLES.HEAD_GIRL,
     STUDENT_ROLES.PREFECT,
     STUDENT_ROLES.MONITOR,
-    STUDENT_ROLES.STUDENT
+    STUDENT_ROLES.STUDENT,
   ],
-  
+
   PARENTS: [
     PARENT_ROLES.PARENT,
     PARENT_ROLES.GUARDIAN,
-    PARENT_ROLES.EMERGENCY_CONTACT
+    PARENT_ROLES.EMERGENCY_CONTACT,
   ],
-  
+
   SUPPORT_STAFF: [
     SUPPORT_ROLES.ACCOUNTANT,
     SUPPORT_ROLES.CLERK,
@@ -164,8 +164,8 @@ export const ROLE_HIERARCHIES = {
     SUPPORT_ROLES.TRANSPORT_MANAGER,
     SUPPORT_ROLES.DRIVER,
     SUPPORT_ROLES.MAINTENANCE,
-    SUPPORT_ROLES.NURSE
-  ]
+    SUPPORT_ROLES.NURSE,
+  ],
 };
 
 /**
@@ -173,65 +173,103 @@ export const ROLE_HIERARCHIES = {
  */
 export const ROLE_PERMISSIONS = {
   // Platform roles have all permissions
-  [PLATFORM_ROLES.SUPER_ADMIN]: ['*'],
+  [PLATFORM_ROLES.SUPER_ADMIN]: ["*"],
   [PLATFORM_ROLES.PLATFORM_ADMIN]: [
-    'platform:read', 'platform:write', 'platform:delete',
-    'organization:read', 'organization:write', 'organization:delete',
-    'school:read', 'school:write', 'school:delete',
-    'user:read', 'user:write', 'user:delete'
+    "platform:read",
+    "platform:write",
+    "platform:delete",
+    "organization:read",
+    "organization:write",
+    "organization:delete",
+    "school:read",
+    "school:write",
+    "school:delete",
+    "user:read",
+    "user:write",
+    "user:delete",
   ],
-  
+
   // Organization roles
   [ORGANIZATION_ROLES.ORG_OWNER]: [
-    'organization:read', 'organization:write', 'organization:delete',
-    'school:read', 'school:write', 'school:delete',
-    'user:read', 'user:write'
+    "organization:read",
+    "organization:write",
+    "organization:delete",
+    "school:read",
+    "school:write",
+    "school:delete",
+    "user:read",
+    "user:write",
   ],
-  
+
   [ORGANIZATION_ROLES.ORG_ADMIN]: [
-    'organization:read', 'organization:write',
-    'school:read', 'school:write',
-    'user:read', 'user:write'
+    "organization:read",
+    "organization:write",
+    "school:read",
+    "school:write",
+    "user:read",
+    "user:write",
   ],
-  
+
   // School admin roles
   [SCHOOL_ADMIN_ROLES.SCHOOL_OWNER]: [
-    'school:read', 'school:write', 'school:delete',
-    'user:read', 'user:write', 'user:delete',
-    'academic:read', 'academic:write',
-    'finance:read', 'finance:write',
-    'hr:read', 'hr:write'
+    "school:read",
+    "school:write",
+    "school:delete",
+    "user:read",
+    "user:write",
+    "user:delete",
+    "academic:read",
+    "academic:write",
+    "finance:read",
+    "finance:write",
+    "hr:read",
+    "hr:write",
   ],
-  
+
   [SCHOOL_ADMIN_ROLES.PRINCIPAL]: [
-    'school:read', 'school:write',
-    'user:read', 'user:write',
-    'academic:read', 'academic:write',
-    'finance:read', 'finance:write',
-    'hr:read', 'hr:write'
+    "school:read",
+    "school:write",
+    "user:read",
+    "user:write",
+    "academic:read",
+    "academic:write",
+    "finance:read",
+    "finance:write",
+    "hr:read",
+    "hr:write",
   ],
-  
+
   // Academic roles
   [ACADEMIC_ROLES.TEACHER]: [
-    'academic:read', 'academic:write',
-    'student:read', 'student:write',
-    'attendance:read', 'attendance:write',
-    'grade:read', 'grade:write'
+    "academic:read",
+    "academic:write",
+    "student:read",
+    "student:write",
+    "attendance:read",
+    "attendance:write",
+    "grade:read",
+    "grade:write",
   ],
-  
+
   // Student roles
   [STUDENT_ROLES.STUDENT]: [
-    'profile:read', 'profile:write',
-    'assignment:read', 'assignment:write',
-    'grade:read', 'attendance:read'
+    "profile:read",
+    "profile:write",
+    "assignment:read",
+    "assignment:write",
+    "grade:read",
+    "attendance:read",
   ],
-  
+
   // Parent roles
   [PARENT_ROLES.PARENT]: [
-    'child:read', 'communication:read',
-    'grade:read', 'attendance:read',
-    'fee:read', 'event:read'
-  ]
+    "child:read",
+    "communication:read",
+    "grade:read",
+    "attendance:read",
+    "fee:read",
+    "event:read",
+  ],
 };
 
 /**
@@ -251,13 +289,13 @@ export const getRolesByCategory = (category) => {
   const categoryMap = {
     platform: PLATFORM_ROLES,
     organization: ORGANIZATION_ROLES,
-    school_admin: SCHOOL_ADMIN_ROLES,
+    schoolAdmin: SCHOOL_ADMIN_ROLES,
     academic: ACADEMIC_ROLES,
     student: STUDENT_ROLES,
     parent: PARENT_ROLES,
-    support: SUPPORT_ROLES
+    support: SUPPORT_ROLES,
   };
-  
+
   return Object.values(categoryMap[category] || {});
 };
 
@@ -281,41 +319,41 @@ export const getRoleHierarchyLevel = (role) => {
     const platformRoles = Object.values(PLATFORM_ROLES);
     return 90 + (platformRoles.length - platformRoles.indexOf(role));
   }
-  
+
   // Organization roles
   if (Object.values(ORGANIZATION_ROLES).includes(role)) {
     const orgRoles = Object.values(ORGANIZATION_ROLES);
     return 80 + (orgRoles.length - orgRoles.indexOf(role));
   }
-  
+
   // School admin roles
   if (Object.values(SCHOOL_ADMIN_ROLES).includes(role)) {
     const schoolRoles = Object.values(SCHOOL_ADMIN_ROLES);
     return 70 + (schoolRoles.length - schoolRoles.indexOf(role));
   }
-  
+
   // Academic roles
   if (Object.values(ACADEMIC_ROLES).includes(role)) {
     const academicRoles = Object.values(ACADEMIC_ROLES);
     return 60 + (academicRoles.length - academicRoles.indexOf(role));
   }
-  
+
   // Support roles
   if (Object.values(SUPPORT_ROLES).includes(role)) {
     return 40;
   }
-  
+
   // Parent roles
   if (Object.values(PARENT_ROLES).includes(role)) {
     return 30;
   }
-  
+
   // Student roles
   if (Object.values(STUDENT_ROLES).includes(role)) {
     const studentRoles = Object.values(STUDENT_ROLES);
     return 10 + (studentRoles.length - studentRoles.indexOf(role));
   }
-  
+
   return 0; // Unknown role
 };
 
@@ -346,7 +384,7 @@ export const getRolePermissions = (role) => {
  */
 export const hasPermission = (role, permission) => {
   const permissions = getRolePermissions(role);
-  return permissions.includes('*') || permissions.includes(permission);
+  return permissions.includes("*") || permissions.includes(permission);
 };
 
 // Default export

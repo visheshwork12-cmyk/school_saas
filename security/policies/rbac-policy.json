@@ -40,7 +40,7 @@
         "concurrent_sessions": 2
       }
     },
-    "school_admin": {
+    "schoolAdmin": {
       "name": "School Administrator",
       "description": "Administrative access within specific school",
       "permissions": [

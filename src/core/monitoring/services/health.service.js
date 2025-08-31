@@ -1,7 +1,7 @@
 // src/core/monitoring/services/health.service.js
-import { EventEmitter } from 'events';
-import { logger } from '#utils/core/logger.js';
-import { getConnection } from '#shared/database/connection-manager.js';
+import { EventEmitter } from "events";
+import { logger } from "#utils/core/logger.js";
+import { getConnection } from "#shared/database/connection-manager.js";
 
 /**
  * Health Service for monitoring system health
@@ -11,24 +11,24 @@ class HealthService extends EventEmitter {
     super();
     this.checks = new Map();
     this.lastHealthCheck = null;
-    this.healthStatus = 'unknown';
+    this.healthStatus = "unknown";
   }
 
   async initialize() {
     try {
-      logger.info('🏥 Initializing Health Service...');
+      logger.info("🏥 Initializing Health Service...");
       this.setupDefaultChecks();
-      logger.info('✅ Health Service initialized successfully');
+      logger.info("✅ Health Service initialized successfully");
     } catch (error) {
-      logger.error('❌ Health Service initialization failed:', error);
+      logger.error("❌ Health Service initialization failed:", error);
       throw error;
     }
   }
 
   setupDefaultChecks() {
-    this.addCheck('database', this.checkDatabase.bind(this));
-    this.addCheck('memory', this.checkMemory.bind(this));
-    this.addCheck('disk', this.checkDisk.bind(this));
+    this.addCheck("database", this.checkDatabase.bind(this));
+    this.addCheck("memory", this.checkMemory.bind(this));
+    this.addCheck("disk", this.checkDisk.bind(this));
   }
 
   addCheck(name, checkFunction) {
@@ -39,11 +39,11 @@ class HealthService extends EventEmitter {
     try {
       const connection = getConnection();
       if (!connection || connection.readyState !== 1) {
-        return { status: 'unhealthy', message: 'Database not connected' };
+        return { status: "unhealthy", message: "Database not connected" };
       }
-      return { status: 'healthy', message: 'Database connected' };
+      return { status: "healthy", message: "Database connected" };
     } catch (error) {
-      return { status: 'unhealthy', message: error.message };
+      return { status: "unhealthy", message: error.message };
     }
   }
 
@@ -51,51 +51,53 @@ class HealthService extends EventEmitter {
     const usage = process.memoryUsage();
     const heapUsedMB = Math.round(usage.heapUsed / 1024 / 1024);
     const heapTotalMB = Math.round(usage.heapTotal / 1024 / 1024);
-    
+
     return {
-      status: heapUsedMB < 500 ? 'healthy' : 'warning',
-      message: `Memory usage: ${heapUsedMB}MB / ${heapTotalMB}MB`
+      status: heapUsedMB < 500 ? "healthy" : "warning",
+      message: `Memory usage: ${heapUsedMB}MB / ${heapTotalMB}MB`,
     };
   }
 
   async checkDisk() {
     return {
-      status: 'healthy',
-      message: 'Disk space sufficient'
+      status: "healthy",
+      message: "Disk space sufficient",
     };
   }
 
   async getSystemHealth() {
     const results = {};
-    
+
     for (const [name, checkFn] of this.checks) {
       try {
         results[name] = await checkFn();
       } catch (error) {
         results[name] = {
-          status: 'unhealthy',
-          message: error.message
+          status: "unhealthy",
+          message: error.message,
         };
       }
     }
 
-    const overallStatus = Object.values(results).every(r => r.status === 'healthy') 
-      ? 'healthy' 
-      : 'degraded';
+    const overallStatus = Object.values(results).every(
+      (r) => r.status === "healthy",
+    )
+      ? "healthy"
+      : "degraded";
 
     this.lastHealthCheck = {
       timestamp: new Date().toISOString(),
       status: overallStatus,
-      checks: results
+      checks: results,
     };
 
     return this.lastHealthCheck;
   }
 
   async shutdown() {
-    logger.info('🛑 Health Service shutting down...');
+    logger.info("🛑 Health Service shutting down...");
     this.checks.clear();
-    logger.info('✅ Health Service shutdown completed');
+    logger.info("✅ Health Service shutdown completed");
   }
 }
 

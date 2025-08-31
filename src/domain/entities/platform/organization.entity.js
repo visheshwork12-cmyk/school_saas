@@ -1,11 +1,11 @@
 // src/domain/entities/platform/organization.entity.js
 
-import { ValidationException } from '#exceptions/validation.exception.js';
+import { ValidationException } from "#exceptions/validation.exception.js";
 
 /**
  * @description Organization entity with business logic.
  * Validates and manages organization data.
- * 
+ *
  * @example
  * const org = new OrganizationEntity({ name: 'Org1' });
  * org.validate();
@@ -26,7 +26,9 @@ class OrganizationEntity {
    */
   validate() {
     if (!this.name || this.name.trim().length < 3) {
-      throw new ValidationException('Organization name must be at least 3 characters');
+      throw new ValidationException(
+        "Organization name must be at least 3 characters",
+      );
     }
     // Add more validations
   }
@@ -36,7 +38,7 @@ class OrganizationEntity {
    * @returns {boolean} Active status.
    */
   isActive() {
-    return this.subscriptionStatus === 'active'; // Use enum
+    return this.subscriptionStatus === "active"; // Use enum
   }
 }
 

@@ -1,4 +1,4 @@
-import baseConfig from './base.config.js';
+import baseConfig from "./base.config.js";
 
 /**
  * @description Local environment configuration
@@ -6,17 +6,17 @@ import baseConfig from './base.config.js';
  */
 const localConfig = {
   ...baseConfig,
-  env: 'local',
-  logLevel: 'debug',
-  
+  env: "local",
+  logLevel: "debug",
+
   mongo: {
     ...baseConfig.mongo,
-    uri: 'mongodb://localhost:27017/school-erp-local',
+    uri: "mongodb://localhost:27017/school-erp-local",
   },
 
   cors: {
     ...baseConfig.cors,
-    allowedOrigins: ['*'],
+    allowedOrigins: ["*"],
   },
 
   rateLimit: {
@@ -26,8 +26,8 @@ const localConfig = {
 
   jwt: {
     ...baseConfig.jwt,
-    accessSecret: process.env.JWT_ACCESS_SECRET || 'local-secret-key',
-    refreshSecret: process.env.JWT_REFRESH_SECRET || 'local-refresh-secret-key',
+    accessSecret: process.env.JWT_ACCESS_SECRET || "local-secret-key",
+    refreshSecret: process.env.JWT_REFRESH_SECRET || "local-refresh-secret-key",
   },
 };
 

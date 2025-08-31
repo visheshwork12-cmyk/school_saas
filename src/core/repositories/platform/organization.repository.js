@@ -1,13 +1,13 @@
 // src/core/repositories/platform/organization.repository.js
 
-import { BaseRepository } from '#core/repositories/base/base.repository.js';
-import OrganizationModel from '#domain/models/platform/organization.model.js';
-import { logger } from '#utils/core/logger.js';
+import { BaseRepository } from "#core/repositories/base/base.repository.js";
+import OrganizationModel from "#domain/models/platform/organization.model.js";
+import { logger } from "#utils/core/logger.js";
 
 /**
  * @description Repository for organization data access.
  * Extends BaseRepository with multi-tenant methods.
- * 
+ *
  * @example
  * const org = await orgRepo.findByTenantId(tenantId);
  */

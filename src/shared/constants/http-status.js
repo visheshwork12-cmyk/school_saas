@@ -11,7 +11,7 @@ export const INFORMATIONAL = {
   CONTINUE: 100,
   SWITCHING_PROTOCOLS: 101,
   PROCESSING: 102,
-  EARLY_HINTS: 103
+  EARLY_HINTS: 103,
 };
 
 /**
@@ -27,7 +27,7 @@ export const SUCCESS = {
   PARTIAL_CONTENT: 206,
   MULTI_STATUS: 207,
   ALREADY_REPORTED: 208,
-  IM_USED: 226
+  IM_USED: 226,
 };
 
 /**
@@ -41,7 +41,7 @@ export const REDIRECTION = {
   NOT_MODIFIED: 304,
   USE_PROXY: 305,
   TEMPORARY_REDIRECT: 307,
-  PERMANENT_REDIRECT: 308
+  PERMANENT_REDIRECT: 308,
 };
 
 /**
@@ -76,7 +76,7 @@ export const CLIENT_ERROR = {
   PRECONDITION_REQUIRED: 428,
   TOO_MANY_REQUESTS: 429,
   REQUEST_HEADER_FIELDS_TOO_LARGE: 431,
-  UNAVAILABLE_FOR_LEGAL_REASONS: 451
+  UNAVAILABLE_FOR_LEGAL_REASONS: 451,
 };
 
 /**
@@ -93,7 +93,7 @@ export const SERVER_ERROR = {
   INSUFFICIENT_STORAGE: 507,
   LOOP_DETECTED: 508,
   NOT_EXTENDED: 510,
-  NETWORK_AUTHENTICATION_REQUIRED: 511
+  NETWORK_AUTHENTICATION_REQUIRED: 511,
 };
 
 /**
@@ -102,18 +102,18 @@ export const SERVER_ERROR = {
 const HTTP_STATUS = {
   // Informational
   ...INFORMATIONAL,
-  
+
   // Success
   ...SUCCESS,
-  
+
   // Redirection
   ...REDIRECTION,
-  
+
   // Client Error
   ...CLIENT_ERROR,
-  
+
   // Server Error
-  ...SERVER_ERROR
+  ...SERVER_ERROR,
 };
 
 /**
@@ -124,7 +124,7 @@ export const STATUS_GROUPS = {
   SUCCESS: Object.values(SUCCESS),
   REDIRECTION: Object.values(REDIRECTION),
   CLIENT_ERROR: Object.values(CLIENT_ERROR),
-  SERVER_ERROR: Object.values(SERVER_ERROR)
+  SERVER_ERROR: Object.values(SERVER_ERROR),
 };
 
 /**
@@ -132,76 +132,76 @@ export const STATUS_GROUPS = {
  */
 export const STATUS_DESCRIPTIONS = {
   // 1xx
-  100: 'Continue',
-  101: 'Switching Protocols',
-  102: 'Processing',
-  103: 'Early Hints',
-  
+  100: "Continue",
+  101: "Switching Protocols",
+  102: "Processing",
+  103: "Early Hints",
+
   // 2xx
-  200: 'OK',
-  201: 'Created',
-  202: 'Accepted',
-  203: 'Non-Authoritative Information',
-  204: 'No Content',
-  205: 'Reset Content',
-  206: 'Partial Content',
-  207: 'Multi-Status',
-  208: 'Already Reported',
-  226: 'IM Used',
-  
+  200: "OK",
+  201: "Created",
+  202: "Accepted",
+  203: "Non-Authoritative Information",
+  204: "No Content",
+  205: "Reset Content",
+  206: "Partial Content",
+  207: "Multi-Status",
+  208: "Already Reported",
+  226: "IM Used",
+
   // 3xx
-  300: 'Multiple Choices',
-  301: 'Moved Permanently',
-  302: 'Found',
-  303: 'See Other',
-  304: 'Not Modified',
-  305: 'Use Proxy',
-  307: 'Temporary Redirect',
-  308: 'Permanent Redirect',
-  
+  300: "Multiple Choices",
+  301: "Moved Permanently",
+  302: "Found",
+  303: "See Other",
+  304: "Not Modified",
+  305: "Use Proxy",
+  307: "Temporary Redirect",
+  308: "Permanent Redirect",
+
   // 4xx
-  400: 'Bad Request',
-  401: 'Unauthorized',
-  402: 'Payment Required',
-  403: 'Forbidden',
-  404: 'Not Found',
-  405: 'Method Not Allowed',
-  406: 'Not Acceptable',
-  407: 'Proxy Authentication Required',
-  408: 'Request Timeout',
-  409: 'Conflict',
-  410: 'Gone',
-  411: 'Length Required',
-  412: 'Precondition Failed',
-  413: 'Payload Too Large',
-  414: 'URI Too Long',
-  415: 'Unsupported Media Type',
-  416: 'Range Not Satisfiable',
-  417: 'Expectation Failed',
-  418: 'I\'m a Teapot',
-  421: 'Misdirected Request',
-  422: 'Unprocessable Entity',
-  423: 'Locked',
-  424: 'Failed Dependency',
-  425: 'Too Early',
-  426: 'Upgrade Required',
-  428: 'Precondition Required',
-  429: 'Too Many Requests',
-  431: 'Request Header Fields Too Large',
-  451: 'Unavailable For Legal Reasons',
-  
+  400: "Bad Request",
+  401: "Unauthorized",
+  402: "Payment Required",
+  403: "Forbidden",
+  404: "Not Found",
+  405: "Method Not Allowed",
+  406: "Not Acceptable",
+  407: "Proxy Authentication Required",
+  408: "Request Timeout",
+  409: "Conflict",
+  410: "Gone",
+  411: "Length Required",
+  412: "Precondition Failed",
+  413: "Payload Too Large",
+  414: "URI Too Long",
+  415: "Unsupported Media Type",
+  416: "Range Not Satisfiable",
+  417: "Expectation Failed",
+  418: "I'm a Teapot",
+  421: "Misdirected Request",
+  422: "Unprocessable Entity",
+  423: "Locked",
+  424: "Failed Dependency",
+  425: "Too Early",
+  426: "Upgrade Required",
+  428: "Precondition Required",
+  429: "Too Many Requests",
+  431: "Request Header Fields Too Large",
+  451: "Unavailable For Legal Reasons",
+
   // 5xx
-  500: 'Internal Server Error',
-  501: 'Not Implemented',
-  502: 'Bad Gateway',
-  503: 'Service Unavailable',
-  504: 'Gateway Timeout',
-  505: 'HTTP Version Not Supported',
-  506: 'Variant Also Negotiates',
-  507: 'Insufficient Storage',
-  508: 'Loop Detected',
-  510: 'Not Extended',
-  511: 'Network Authentication Required'
+  500: "Internal Server Error",
+  501: "Not Implemented",
+  502: "Bad Gateway",
+  503: "Service Unavailable",
+  504: "Gateway Timeout",
+  505: "HTTP Version Not Supported",
+  506: "Variant Also Negotiates",
+  507: "Insufficient Storage",
+  508: "Loop Detected",
+  510: "Not Extended",
+  511: "Network Authentication Required",
 };
 
 /**
@@ -214,60 +214,63 @@ export const StatusUtils = {
    * @returns {boolean} True if informational
    */
   isInformational: (statusCode) => statusCode >= 100 && statusCode < 200,
-  
+
   /**
    * @description Check if status code is success (2xx)
    * @param {number} statusCode - Status code to check
    * @returns {boolean} True if success
    */
   isSuccess: (statusCode) => statusCode >= 200 && statusCode < 300,
-  
+
   /**
    * @description Check if status code is redirection (3xx)
    * @param {number} statusCode - Status code to check
    * @returns {boolean} True if redirection
    */
   isRedirection: (statusCode) => statusCode >= 300 && statusCode < 400,
-  
+
   /**
    * @description Check if status code is client error (4xx)
    * @param {number} statusCode - Status code to check
    * @returns {boolean} True if client error
    */
   isClientError: (statusCode) => statusCode >= 400 && statusCode < 500,
-  
+
   /**
    * @description Check if status code is server error (5xx)
    * @param {number} statusCode - Status code to check
    * @returns {boolean} True if server error
    */
   isServerError: (statusCode) => statusCode >= 500 && statusCode < 600,
-  
+
   /**
    * @description Check if status code is error (4xx or 5xx)
    * @param {number} statusCode - Status code to check
    * @returns {boolean} True if error
    */
   isError: (statusCode) => statusCode >= 400,
-  
+
   /**
    * @description Get description for status code
    * @param {number} statusCode - Status code
    * @returns {string} Status description
    */
-  getDescription: (statusCode) => STATUS_DESCRIPTIONS[statusCode] || 'Unknown Status',
-  
+  getDescription: (statusCode) =>
+    STATUS_DESCRIPTIONS[statusCode] || "Unknown Status",
+
   /**
    * @description Check if status code is valid HTTP status
    * @param {number} statusCode - Status code to validate
    * @returns {boolean} True if valid
    */
   isValid: (statusCode) => {
-    return typeof statusCode === 'number' && 
-           statusCode >= 100 && 
-           statusCode < 600 && 
-           Number.isInteger(statusCode);
-  }
+    return (
+      typeof statusCode === "number" &&
+      statusCode >= 100 &&
+      statusCode < 600 &&
+      Number.isInteger(statusCode)
+    );
+  },
 };
 
 /**
@@ -278,39 +281,39 @@ export const SCHOOL_ERP_STATUS_USAGE = {
   AUTHENTICATION_FAILED: CLIENT_ERROR.UNAUTHORIZED, // 401
   ACCESS_FORBIDDEN: CLIENT_ERROR.FORBIDDEN, // 403
   SESSION_EXPIRED: CLIENT_ERROR.UNAUTHORIZED, // 401
-  
+
   // Validation & Input Errors
   VALIDATION_ERROR: CLIENT_ERROR.UNPROCESSABLE_ENTITY, // 422
   INVALID_INPUT: CLIENT_ERROR.BAD_REQUEST, // 400
   MISSING_REQUIRED_FIELDS: CLIENT_ERROR.BAD_REQUEST, // 400
-  
+
   // Resource Management
   RESOURCE_NOT_FOUND: CLIENT_ERROR.NOT_FOUND, // 404
   RESOURCE_CONFLICT: CLIENT_ERROR.CONFLICT, // 409
   RESOURCE_CREATED: SUCCESS.CREATED, // 201
   RESOURCE_UPDATED: SUCCESS.OK, // 200
   RESOURCE_DELETED: SUCCESS.NO_CONTENT, // 204
-  
+
   // Subscription & Billing
   SUBSCRIPTION_EXPIRED: CLIENT_ERROR.PAYMENT_REQUIRED, // 402
   FEATURE_NOT_AVAILABLE: CLIENT_ERROR.FORBIDDEN, // 403
   USAGE_LIMIT_EXCEEDED: CLIENT_ERROR.TOO_MANY_REQUESTS, // 429
-  
+
   // Multi-tenancy
   TENANT_NOT_FOUND: CLIENT_ERROR.NOT_FOUND, // 404
   TENANT_SUSPENDED: CLIENT_ERROR.FORBIDDEN, // 403
   INVALID_TENANT: CLIENT_ERROR.BAD_REQUEST, // 400
-  
+
   // School Operations
   ACADEMIC_YEAR_LOCKED: CLIENT_ERROR.LOCKED, // 423
   ENROLLMENT_FULL: CLIENT_ERROR.CONFLICT, // 409
   GRADE_ALREADY_ASSIGNED: CLIENT_ERROR.CONFLICT, // 409
-  
+
   // System Operations
   MAINTENANCE_MODE: SERVER_ERROR.SERVICE_UNAVAILABLE, // 503
   SYSTEM_OVERLOAD: SERVER_ERROR.SERVICE_UNAVAILABLE, // 503
   DATABASE_ERROR: SERVER_ERROR.INTERNAL_SERVER_ERROR, // 500
-  
+
   // Success Operations
   LOGIN_SUCCESS: SUCCESS.OK, // 200
   LOGOUT_SUCCESS: SUCCESS.OK, // 200
@@ -325,7 +328,9 @@ export const SCHOOL_ERP_STATUS_USAGE = {
  * @returns {number} HTTP status code
  */
 export const getERPStatus = (operation) => {
-  return SCHOOL_ERP_STATUS_USAGE[operation] || HTTP_STATUS.INTERNAL_SERVER_ERROR;
+  return (
+    SCHOOL_ERP_STATUS_USAGE[operation] || HTTP_STATUS.INTERNAL_SERVER_ERROR
+  );
 };
 
 /**
@@ -342,7 +347,7 @@ export const createResponse = (statusCode, message, data = null) => {
     success: StatusUtils.isSuccess(statusCode),
     message: message || StatusUtils.getDescription(statusCode),
     data,
-    timestamp: new Date().toISOString()
+    timestamp: new Date().toISOString(),
   };
 };
 

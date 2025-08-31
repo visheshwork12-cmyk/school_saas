@@ -1,10 +1,10 @@
-import semver from 'semver';
-import { logger } from '#utils/core/logger.js';
-import baseConfig from '#shared/config/environments/base.config.js';
-import { AuditService } from '#core/audit/services/audit-log.service.js';
-import { BusinessException } from '#shared/exceptions/business.exception.js';
-import HTTP_STATUS from '#constants/http-status.js';
-import catchAsync from '#utils/core/catchAsync.js';
+import semver from "semver";
+import { logger } from "#utils/core/logger.js";
+import baseConfig from "#shared/config/environments/base.config.js";
+import { AuditService } from "#core/audit/services/audit-log.service.js";
+import { BusinessException } from "#shared/exceptions/business.exception.js";
+import HTTP_STATUS from "#constants/http-status.js";
+import catchAsync from "#utils/core/catchAsync.js";
 
 /**
  * @description Middleware for transforming response based on client version
@@ -15,13 +15,16 @@ import catchAsync from '#utils/core/catchAsync.js';
  */
 const responseVersionMiddleware = catchAsync(async (req, res, next) => {
   // Skip transformation for public endpoints
-  const publicEndpoints = ['/health', '/status'];
+  const publicEndpoints = ["/health", "/status"];
   if (publicEndpoints.includes(req.path)) {
-    logger.debug(`Skipping response transformation for public endpoint: ${req.path}`, {
-      requestId: req.requestId,
-    });
-    await AuditService.log('RESPONSE_TRANSFORMATION_SKIPPED', {
-      action: 'response_transformation',
+    logger.debug(
+      `Skipping response transformation for public endpoint: ${req.path}`,
+      {
+        requestId: req.requestId,
+      },
+    );
+    await AuditService.log("RESPONSE_TRANSFORMATION_SKIPPED", {
+      action: "response_transformation",
       path: req.path,
       requestId: req.requestId,
     });
@@ -31,17 +34,23 @@ const responseVersionMiddleware = catchAsync(async (req, res, next) => {
   // Get client version from context
   const clientVersion = req.context?.clientVersion;
   if (!clientVersion || !semver.valid(clientVersion)) {
-    logger.error(`Invalid client version for response transformation: ${clientVersion}`, {
-      path: req.path,
-      requestId: req.requestId,
-    });
-    await AuditService.log('INVALID_RESPONSE_VERSION', {
-      action: 'response_transformation',
+    logger.error(
+      `Invalid client version for response transformation: ${clientVersion}`,
+      {
+        path: req.path,
+        requestId: req.requestId,
+      },
+    );
+    await AuditService.log("INVALID_RESPONSE_VERSION", {
+      action: "response_transformation",
       clientVersion,
       path: req.path,
       requestId: req.requestId,
     });
-    throw new BusinessException('Invalid client version for response transformation', HTTP_STATUS.BAD_REQUEST);
+    throw new BusinessException(
+      "Invalid client version for response transformation",
+      HTTP_STATUS.BAD_REQUEST,
+    );
   }
 
   // Original send method
@@ -61,8 +70,8 @@ const responseVersionMiddleware = catchAsync(async (req, res, next) => {
         path: req.path,
         requestId: req.requestId,
       });
-      await AuditService.log('RESPONSE_TRANSFORMED', {
-        action: 'response_transformation',
+      await AuditService.log("RESPONSE_TRANSFORMED", {
+        action: "response_transformation",
         clientVersion,
         path: req.path,
         requestId: req.requestId,
@@ -74,14 +83,17 @@ const responseVersionMiddleware = catchAsync(async (req, res, next) => {
         path: req.path,
         requestId: req.requestId,
       });
-      await AuditService.log('RESPONSE_TRANSFORMATION_FAILED', {
-        action: 'response_transformation',
+      await AuditService.log("RESPONSE_TRANSFORMATION_FAILED", {
+        action: "response_transformation",
         clientVersion,
         path: req.path,
         error: error.message,
         requestId: req.requestId,
       });
-      throw new BusinessException('Response transformation failed', HTTP_STATUS.INTERNAL_SERVER_ERROR);
+      throw new BusinessException(
+        "Response transformation failed",
+        HTTP_STATUS.INTERNAL_SERVER_ERROR,
+      );
     }
   };
 
@@ -96,7 +108,7 @@ const responseVersionMiddleware = catchAsync(async (req, res, next) => {
  */
 function transformResponse(body, clientVersion) {
   // Example transformation: Wrap response in a legacy format for older versions
-  if (semver.lt(clientVersion, '1.1.0')) {
+  if (semver.lt(clientVersion, "1.1.0")) {
     return {
       data: body,
       version: clientVersion,

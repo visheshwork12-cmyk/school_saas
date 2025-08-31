@@ -1,16 +1,14 @@
 // src/core/tenant/services/tenant-resolver.service.js
-
-import catchAsync from '#utils/core/catchAsync.js';
-import { OrganizationRepository } from '#core/repositories/platform/organization.repository.js';
-import { AuthenticationException } from '#exceptions/authentication.exception.js';
-import config from '#config/index.js';
-import { logger } from '#utils/core/logger.js';
+import { OrganizationRepository } from "#core/repositories/platform/organization.repository.js";
+import { AuthenticationException } from "#exceptions/authentication.exception.js";
+import config from "#config/index.js";
+import { logger } from "#utils/core/logger.js";
 
 /**
  * @description Service for resolving tenant context from request.
  * Supports multiple identification methods: subdomain, header, path.
  * Loads tenant data and sets context.
- * 
+ *
  * @example
  * const tenantContext = await tenantResolver.resolve(req);
  */
@@ -26,17 +24,20 @@ class TenantResolverService {
    * @private
    */
   _extractTenantId(req) {
-    const mode = config.multiTenant.mode || 'header';
+    const mode = config.multiTenant.mode || "header";
 
     switch (mode) {
-      case 'subdomain':
+      case "subdomain":
         return req.subdomains[0] || config.multiTenant.defaultTenantId;
-      case 'header':
-        return req.headers[config.multiTenant.tenantHeaderName] || config.multiTenant.defaultTenantId;
-      case 'path':
+      case "header":
+        return (
+          req.headers[config.multiTenant.tenantHeaderName] ||
+          config.multiTenant.defaultTenantId
+        );
+      case "path":
         return req.params.tenantId || config.multiTenant.defaultTenantId;
       default:
-        throw new Error('Invalid multi-tenant mode');
+        throw new Error("Invalid multi-tenant mode");
     }
   }
 
@@ -50,14 +51,14 @@ class TenantResolverService {
       const tenantId = this._extractTenantId(req);
 
       if (!tenantId) {
-        throw new AuthenticationException('Tenant ID required');
+        throw new AuthenticationException("Tenant ID required");
       }
 
       // Load organization with subscription
       const organization = await this.orgRepo.findByTenantId(tenantId);
 
       if (!organization) {
-        throw new AuthenticationException('Invalid tenant');
+        throw new AuthenticationException("Invalid tenant");
       }
 
       // Build context

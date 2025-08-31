@@ -1,5 +1,5 @@
 // src/domain/models/subject.model.js
-import { Schema, model } from 'mongoose';
+import { Schema, model } from "mongoose";
 
 /**
  * @typedef {Object} Subject
@@ -20,13 +20,17 @@ import { Schema, model } from 'mongoose';
  * @property {string} createdBy - Creator's user ID
  */
 const subjectSchema = new Schema({
-  schoolId: { type: Schema.Types.ObjectId, ref: 'School', required: true },
+  schoolId: { type: Schema.Types.ObjectId, ref: "School", required: true },
   tenantId: { type: String, required: true, index: true },
   name: { type: String, required: true },
   code: { type: String, required: true },
   description: String,
-  category: { type: String, enum: ['core', 'elective', 'language'], required: true },
-  type: { type: String, enum: ['theory', 'practical', 'both'], required: true },
+  category: {
+    type: String,
+    enum: ["core", "elective", "language"],
+    required: true,
+  },
+  type: { type: String, enum: ["theory", "practical", "both"], required: true },
   grading: {
     maxMarks: Number,
     passingMarks: Number,
@@ -34,7 +38,7 @@ const subjectSchema = new Schema({
   },
   applicableClasses: [
     {
-      classId: { type: Schema.Types.ObjectId, ref: 'Class' },
+      classId: { type: Schema.Types.ObjectId, ref: "Class" },
       grade: Number,
       isCompulsory: Boolean,
       credits: Number,
@@ -42,15 +46,22 @@ const subjectSchema = new Schema({
   ],
   syllabus: {
     document: String,
-    chapters: [{ number: Number, title: String, description: String, estimatedHours: Number }],
+    chapters: [
+      {
+        number: Number,
+        title: String,
+        description: String,
+        estimatedHours: Number,
+      },
+    ],
   },
-  status: { type: String, enum: ['active', 'inactive'], default: 'active' },
+  status: { type: String, enum: ["active", "inactive"], default: "active" },
   createdAt: { type: Date, default: Date.now },
   updatedAt: { type: Date, default: Date.now },
-  createdBy: { type: Schema.Types.ObjectId, ref: 'User' },
+  createdBy: { type: Schema.Types.ObjectId, ref: "User" },
 });
 
 subjectSchema.index({ schoolId: 1, code: 1 }, { unique: true });
 subjectSchema.index({ tenantId: 1, category: 1, status: 1 });
 
-export const Subject = model('Subject', subjectSchema);
+export const Subject = model("Subject", subjectSchema);

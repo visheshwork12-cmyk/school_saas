@@ -1,13 +1,13 @@
 // src/core/repositories/base/base.repository.js
 
-import { logger } from '#utils/core/logger.js';
+import { logger } from "#utils/core/logger.js";
 
 /**
  * @description Generic base repository with CRUD operations.
  * Supports multi-tenant filtering and soft deletes.
- * 
+ *
  * @typedef {import('mongoose').Model} Model
- * 
+ *
  * @example
  * class UserRepository extends BaseRepository {
  *   constructor() { super(UserModel); }
@@ -45,7 +45,11 @@ class BaseRepository {
    * @returns {Promise<Object|null>} Document or null.
    */
   async findById(id, options = {}) {
-    const filter = { _id: id, isDeleted: false, ...this._tenantFilter(options.tenant) };
+    const filter = {
+      _id: id,
+      isDeleted: false,
+      ...this._tenantFilter(options.tenant),
+    };
     return this.model.findOne(filter).exec();
   }
 
@@ -56,7 +60,11 @@ class BaseRepository {
    * @returns {Promise<Object|null>} Document or null.
    */
   async findOne(filter, options = {}) {
-    const tenantFilter = { ...filter, isDeleted: false, ...this._tenantFilter(options.tenant) };
+    const tenantFilter = {
+      ...filter,
+      isDeleted: false,
+      ...this._tenantFilter(options.tenant),
+    };
     return this.model.findOne(tenantFilter).exec();
   }
 
@@ -67,7 +75,11 @@ class BaseRepository {
    * @returns {Promise<Array>} Documents.
    */
   async findMany(filter, options = {}) {
-    const tenantFilter = { ...filter, isDeleted: false, ...this._tenantFilter(options.tenant) };
+    const tenantFilter = {
+      ...filter,
+      isDeleted: false,
+      ...this._tenantFilter(options.tenant),
+    };
     return this.model.find(tenantFilter).exec();
   }
 
@@ -79,8 +91,14 @@ class BaseRepository {
    * @returns {Promise<Object|null>} Updated document.
    */
   async update(id, data, options = {}) {
-    const filter = { _id: id, isDeleted: false, ...this._tenantFilter(options.tenant) };
-    return this.model.findOneAndUpdate(filter, data, { new: true, ...options }).exec();
+    const filter = {
+      _id: id,
+      isDeleted: false,
+      ...this._tenantFilter(options.tenant),
+    };
+    return this.model
+      .findOneAndUpdate(filter, data, { new: true, ...options })
+      .exec();
   }
 
   /**
@@ -90,7 +108,11 @@ class BaseRepository {
    * @returns {Promise<Object|null>} Deleted document.
    */
   async delete(id, options = {}) {
-    const update = { isDeleted: true, deletedAt: new Date(), deletedBy: options.deletedBy };
+    const update = {
+      isDeleted: true,
+      deletedAt: new Date(),
+      deletedBy: options.deletedBy,
+    };
     return this.update(id, update, options);
   }
 
@@ -102,8 +124,14 @@ class BaseRepository {
    */
   async paginate(filter, options) {
     // Use paginationHelper for efficiency
-    const { paginationHelper } = await import('#utils/helpers/pagination.helper.js');
-    return paginationHelper.paginate(this.model, { ...filter, ...this._tenantFilter(options.tenant) }, options);
+    const { paginationHelper } = await import(
+      "#utils/helpers/pagination.helper.js"
+    );
+    return paginationHelper.paginate(
+      this.model,
+      { ...filter, ...this._tenantFilter(options.tenant) },
+      options,
+    );
   }
 
   /**
@@ -113,7 +141,9 @@ class BaseRepository {
    * @private
    */
   _tenantFilter(tenant) {
-    return tenant ? { organizationId: tenant.organizationId, schoolId: tenant.schoolId } : {};
+    return tenant
+      ? { organizationId: tenant.organizationId, schoolId: tenant.schoolId }
+      : {};
   }
 }
 

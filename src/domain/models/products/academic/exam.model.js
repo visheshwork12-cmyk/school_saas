@@ -1,5 +1,5 @@
 // src/domain/models/exam.model.js
-import { Schema, model } from 'mongoose';
+import { Schema, model } from "mongoose";
 
 /**
  * @typedef {Object} Exam
@@ -20,10 +20,14 @@ import { Schema, model } from 'mongoose';
  * @property {string} createdBy - Creator's user ID
  */
 const examSchema = new Schema({
-  schoolId: { type: Schema.Types.ObjectId, ref: 'School', required: true },
+  schoolId: { type: Schema.Types.ObjectId, ref: "School", required: true },
   tenantId: { type: String, required: true, index: true },
   name: { type: String, required: true },
-  type: { type: String, enum: ['unit_test', 'mid_term', 'final', 'surprise'], required: true },
+  type: {
+    type: String,
+    enum: ["unit_test", "mid_term", "final", "surprise"],
+    required: true,
+  },
   description: String,
   schedule: {
     startDate: Date,
@@ -31,7 +35,7 @@ const examSchema = new Schema({
     resultDate: Date,
     subjects: [
       {
-        subjectId: { type: Schema.Types.ObjectId, ref: 'Subject' },
+        subjectId: { type: Schema.Types.ObjectId, ref: "Subject" },
         subjectName: String,
         date: Date,
         startTime: String,
@@ -39,14 +43,14 @@ const examSchema = new Schema({
         maxMarks: Number,
         passingMarks: Number,
         room: String,
-        invigilator: { type: Schema.Types.ObjectId, ref: 'User' },
+        invigilator: { type: Schema.Types.ObjectId, ref: "User" },
       },
     ],
   },
-  classes: [{ type: Schema.Types.ObjectId, ref: 'Class' }],
+  classes: [{ type: Schema.Types.ObjectId, ref: "Class" }],
   academicYear: { type: String, required: true },
   configuration: {
-    gradingSystem: { type: String, enum: ['marks', 'grades', 'both'] },
+    gradingSystem: { type: String, enum: ["marks", "grades", "both"] },
     allowReexam: Boolean,
     negativeMarking: Boolean,
     negativeMarkingRatio: Number,
@@ -60,14 +64,18 @@ const examSchema = new Schema({
     showRanking: Boolean,
     autoGenerateReportCard: Boolean,
   },
-  status: { type: String, enum: ['draft', 'scheduled', 'ongoing', 'completed', 'cancelled'], default: 'draft' },
+  status: {
+    type: String,
+    enum: ["draft", "scheduled", "ongoing", "completed", "cancelled"],
+    default: "draft",
+  },
   createdAt: { type: Date, default: Date.now },
   updatedAt: { type: Date, default: Date.now },
-  createdBy: { type: Schema.Types.ObjectId, ref: 'User' },
+  createdBy: { type: Schema.Types.ObjectId, ref: "User" },
 });
 
 examSchema.index({ schoolId: 1, academicYear: 1, status: 1 });
-examSchema.index({ tenantId: 1, 'schedule.startDate': 1 });
+examSchema.index({ tenantId: 1, "schedule.startDate": 1 });
 examSchema.index({ classes: 1, status: 1 });
 
-export const Exam = model('Exam', examSchema);
+export const Exam = model("Exam", examSchema);

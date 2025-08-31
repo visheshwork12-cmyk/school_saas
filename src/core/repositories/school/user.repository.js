@@ -1,13 +1,13 @@
 // src/core/repositories/school/user.repository.js
 
-import { BaseRepository } from '#core/repositories/base/base.repository.js';
-import UserModel from '#domain/models/school/user.model.js';
-import { logger } from '#utils/core/logger.js';
+import { BaseRepository } from "#core/repositories/base/base.repository.js";
+import UserModel from "#domain/models/school/user.model.js";
+import { logger } from "#utils/core/logger.js";
 
 /**
  * @description Repository for user data access with tenant isolation.
  * Extends BaseRepository.
- * 
+ *
  * @example
  * const user = await userRepo.findByEmail(email);
  */
@@ -23,7 +23,7 @@ class UserRepository extends BaseRepository {
    * @returns {Promise<Object|null>} User.
    */
   async findByEmail(email, includePassword = false) {
-    const select = includePassword ? '+password' : '';
+    const select = includePassword ? "+password" : "";
     return this.model.findOne({ email, isDeleted: false }).select(select);
   }
 
@@ -35,8 +35,10 @@ class UserRepository extends BaseRepository {
    * @returns {Promise<Object|null>} User.
    */
   async findByEmailAndSchool(email, schoolId, includePassword = false) {
-    const select = includePassword ? '+password' : '';
-    return this.model.findOne({ email, schoolId, isDeleted: false }).select(select);
+    const select = includePassword ? "+password" : "";
+    return this.model
+      .findOne({ email, schoolId, isDeleted: false })
+      .select(select);
   }
 
   // Implement other methods: incrementFailedAttempts, resetFailedAttempts, etc.

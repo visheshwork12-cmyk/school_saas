@@ -1,7 +1,7 @@
 // src/domain/models/platform/subscription.model.js
 
-import mongoose from 'mongoose';
-import { SUBSCRIPTION_STATUS } from '#domain/enums/subscription-status.enum.js';
+import mongoose from "mongoose";
+import { SUBSCRIPTION_STATUS } from "#domain/enums/subscription-status.enum.js";
 
 const { Schema } = mongoose;
 
@@ -11,17 +11,29 @@ const { Schema } = mongoose;
  */
 const subscriptionSchema = new Schema(
   {
-    organizationId: { type: Schema.Types.ObjectId, ref: 'Organization', required: true },
+    organizationId: {
+      type: Schema.Types.ObjectId,
+      ref: "Organization",
+      required: true,
+    },
     planId: { type: String, required: true },
-    status: { type: String, enum: Object.values(SUBSCRIPTION_STATUS), default: SUBSCRIPTION_STATUS.TRIAL },
+    status: {
+      type: String,
+      enum: Object.values(SUBSCRIPTION_STATUS),
+      default: SUBSCRIPTION_STATUS.TRIAL,
+    },
     currentPeriod: {
       start: { type: Date, required: true },
       end: { type: Date, required: true },
     },
     billing: {
       amount: { type: Number, default: 0 },
-      currency: { type: String, default: 'USD' },
-      interval: { type: String, enum: ['monthly', 'yearly'], default: 'monthly' },
+      currency: { type: String, default: "USD" },
+      interval: {
+        type: String,
+        enum: ["monthly", "yearly"],
+        default: "monthly",
+      },
       nextBillDate: { type: Date },
     },
     features: [{ type: String }],
@@ -41,15 +53,15 @@ const subscriptionSchema = new Schema(
       endDate: { type: Date },
       daysRemaining: { type: Number },
     },
-    createdBy: { type: Schema.Types.ObjectId, ref: 'User' },
-    updatedBy: { type: Schema.Types.ObjectId, ref: 'User' },
+    createdBy: { type: Schema.Types.ObjectId, ref: "User" },
+    updatedBy: { type: Schema.Types.ObjectId, ref: "User" },
     isDeleted: { type: Boolean, default: false },
     deletedAt: { type: Date },
-    deletedBy: { type: Schema.Types.ObjectId, ref: 'User' },
+    deletedBy: { type: Schema.Types.ObjectId, ref: "User" },
   },
   {
     timestamps: true,
-  }
+  },
 );
 
 // Indexes for performance
@@ -62,6 +74,6 @@ subscriptionSchema.pre(/^find/, function (next) {
   next();
 });
 
-const SubscriptionModel = mongoose.model('Subscription', subscriptionSchema);
+const SubscriptionModel = mongoose.model("Subscription", subscriptionSchema);
 
 export { SubscriptionModel };

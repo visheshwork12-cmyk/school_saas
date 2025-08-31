@@ -1,5 +1,5 @@
-import baseConfig from './base.config.js';
-import { BusinessException } from '#exceptions/business.exception.js';
+import baseConfig from "./base.config.js";
+import { BusinessException } from "#exceptions/business.exception.js";
 
 /**
  * @description Staging environment configuration
@@ -7,17 +7,20 @@ import { BusinessException } from '#exceptions/business.exception.js';
  */
 const stagingConfig = {
   ...baseConfig,
-  env: 'staging',
-  logLevel: 'info',
-  
+  env: "staging",
+  logLevel: "info",
+
   mongo: {
     ...baseConfig.mongo,
-    uri: process.env.MONGODB_URI || throwError('MONGODB_URI required in staging'),
+    uri:
+      process.env.MONGODB_URI || throwError("MONGODB_URI required in staging"),
   },
 
   cors: {
     ...baseConfig.cors,
-    allowedOrigins: process.env.CORS_ALLOWED_ORIGINS?.split(',') || ['https://staging.yourapp.com'],
+    allowedOrigins: process.env.CORS_ALLOWED_ORIGINS?.split(",") || [
+      "https://staging.yourapp.com",
+    ],
   },
 
   rateLimit: {

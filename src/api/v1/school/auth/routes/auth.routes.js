@@ -1,12 +1,15 @@
 // src/api/v1/school/auth/routes/auth.routes.js - FIXED VERSION
-import { Router } from 'express';
-import rateLimit from 'express-rate-limit';
-import catchAsync from '#utils/core/catchAsync.js';
-import { schemaValidation } from '#shared/middleware/validation/schema-validation.middleware.js';
-import { loginSchema, registerSchema } from '#api/v1/school/auth/dto/login.dto.js';
-import { authController } from '#api/v1/school/auth/controllers/auth.controller.js';
-import { tenantMiddleware } from '#core/tenant/middleware/tenant.middleware.js';
-import baseConfig from '#shared/config/environments/base.config.js';
+import { Router } from "express";
+import rateLimit from "express-rate-limit";
+import catchAsync from "#utils/core/catchAsync.js";
+import { schemaValidation } from "#shared/middleware/validation/schema-validation.middleware.js";
+import {
+  loginSchema,
+  registerSchema,
+} from "#api/v1/school/auth/dto/login.dto.js";
+import { authController } from "#api/v1/school/auth/controllers/auth.controller.js";
+import { tenantMiddleware } from "#core/tenant/middleware/tenant.middleware.js";
+import baseConfig from "#shared/config/environments/base.config.js";
 
 /**
  * @description Authentication routes for school users
@@ -19,43 +22,43 @@ const loginLimiter = rateLimit({
   windowMs: 15 * 60 * 1000, // 15 minutes
   max: baseConfig?.auth?.maxLoginAttempts || 5, // Default to 5 if config not available
   message: {
-    error: 'Too many login attempts',
-    message: 'Please try again after 15 minutes',
-    code: 'RATE_LIMIT_EXCEEDED'
+    error: "Too many login attempts",
+    message: "Please try again after 15 minutes",
+    code: "RATE_LIMIT_EXCEEDED",
   },
   standardHeaders: true,
   legacyHeaders: false,
   handler: (req, res) => {
     res.status(429).json({
       success: false,
-      error: 'Too many login attempts',
-      message: 'Please try again after 15 minutes',
-      code: 'RATE_LIMIT_EXCEEDED',
-      retryAfter: Math.ceil(req.rateLimit.resetTime / 1000)
+      error: "Too many login attempts",
+      message: "Please try again after 15 minutes",
+      code: "RATE_LIMIT_EXCEEDED",
+      retryAfter: Math.ceil(req.rateLimit.resetTime / 1000),
     });
-  }
+  },
 });
 
 const registerLimiter = rateLimit({
   windowMs: 60 * 60 * 1000, // 1 hour
   max: baseConfig?.auth?.maxRegistrationAttempts || 3, // Default to 3 if config not available
   message: {
-    error: 'Too many registration attempts',
-    message: 'Please try again after 1 hour',
-    code: 'REGISTRATION_RATE_LIMIT_EXCEEDED'
+    error: "Too many registration attempts",
+    message: "Please try again after 1 hour",
+    code: "REGISTRATION_RATE_LIMIT_EXCEEDED",
   },
   standardHeaders: true,
-  legacyHeaders: false
+  legacyHeaders: false,
 });
 
 const passwordResetLimiter = rateLimit({
   windowMs: 60 * 60 * 1000, // 1 hour
   max: baseConfig?.auth?.maxPasswordResetAttempts || 3, // Default to 3 if config not available
   message: {
-    error: 'Too many password reset attempts',
-    message: 'Please try again after 1 hour',
-    code: 'PASSWORD_RESET_RATE_LIMIT_EXCEEDED'
-  }
+    error: "Too many password reset attempts",
+    message: "Please try again after 1 hour",
+    code: "PASSWORD_RESET_RATE_LIMIT_EXCEEDED",
+  },
 });
 
 // Apply tenant middleware to all auth routes
@@ -67,10 +70,10 @@ authRoutes.use(tenantMiddleware);
  * @access Public
  */
 authRoutes.post(
-  '/login',
+  "/login",
   loginLimiter,
   schemaValidation(loginSchema),
-  catchAsync(authController.login)
+  catchAsync(authController.login),
 );
 
 /**
@@ -79,10 +82,10 @@ authRoutes.post(
  * @access Public (with restrictions)
  */
 authRoutes.post(
-  '/register',
+  "/register",
   registerLimiter,
   schemaValidation(registerSchema),
-  catchAsync(authController.register)
+  catchAsync(authController.register),
 );
 
 /**
@@ -90,20 +93,14 @@ authRoutes.post(
  * @description Refresh JWT token
  * @access Private (with refresh token)
  */
-authRoutes.post(
-  '/refresh',
-  catchAsync(authController.refresh)
-);
+authRoutes.post("/refresh", catchAsync(authController.refresh));
 
 /**
  * @route POST /api/v1/school/auth/logout
  * @description User logout
  * @access Private
  */
-authRoutes.post(
-  '/logout',
-  catchAsync(authController.logout)
-);
+authRoutes.post("/logout", catchAsync(authController.logout));
 
 /**
  * @route POST /api/v1/school/auth/forgot-password
@@ -111,9 +108,9 @@ authRoutes.post(
  * @access Public
  */
 authRoutes.post(
-  '/forgot-password',
+  "/forgot-password",
   passwordResetLimiter,
-  catchAsync(authController.forgotPassword)
+  catchAsync(authController.forgotPassword),
 );
 
 /**
@@ -122,9 +119,9 @@ authRoutes.post(
  * @access Public
  */
 authRoutes.post(
-  '/reset-password',
+  "/reset-password",
   passwordResetLimiter,
-  catchAsync(authController.resetPassword)
+  catchAsync(authController.resetPassword),
 );
 
 /**
@@ -132,20 +129,14 @@ authRoutes.post(
  * @description Change password (authenticated user)
  * @access Private
  */
-authRoutes.post(
-  '/change-password',
-  catchAsync(authController.changePassword)
-);
+authRoutes.post("/change-password", catchAsync(authController.changePassword));
 
 /**
  * @route GET /api/v1/school/auth/verify-email/:token
  * @description Verify email address
  * @access Public
  */
-authRoutes.get(
-  '/verify-email/:token',
-  catchAsync(authController.verifyEmail)
-);
+authRoutes.get("/verify-email/:token", catchAsync(authController.verifyEmail));
 
 /**
  * @route POST /api/v1/school/auth/resend-verification
@@ -153,13 +144,13 @@ authRoutes.get(
  * @access Public
  */
 authRoutes.post(
-  '/resend-verification',
+  "/resend-verification",
   rateLimit({
     windowMs: 60 * 60 * 1000, // 1 hour
     max: 3,
-    message: 'Too many verification emails sent'
+    message: "Too many verification emails sent",
   }),
-  catchAsync(authController.resendVerification)
+  catchAsync(authController.resendVerification),
 );
 
 /**
@@ -167,30 +158,21 @@ authRoutes.post(
  * @description Get current user profile
  * @access Private
  */
-authRoutes.get(
-  '/me',
-  catchAsync(authController.getCurrentUser)
-);
+authRoutes.get("/me", catchAsync(authController.getCurrentUser));
 
 /**
  * @route PUT /api/v1/school/auth/me
  * @description Update current user profile
  * @access Private
  */
-authRoutes.put(
-  '/me',
-  catchAsync(authController.updateProfile)
-);
+authRoutes.put("/me", catchAsync(authController.updateProfile));
 
 /**
  * @route POST /api/v1/school/auth/2fa/enable
  * @description Enable two-factor authentication
  * @access Private
  */
-authRoutes.post(
-  '/2fa/enable',
-  catchAsync(authController.enableTwoFactor)
-);
+authRoutes.post("/2fa/enable", catchAsync(authController.enableTwoFactor));
 
 /**
  * @route POST /api/v1/school/auth/2fa/verify
@@ -198,13 +180,13 @@ authRoutes.post(
  * @access Private
  */
 authRoutes.post(
-  '/2fa/verify',
+  "/2fa/verify",
   rateLimit({
     windowMs: 15 * 60 * 1000,
     max: 10,
-    message: 'Too many 2FA verification attempts'
+    message: "Too many 2FA verification attempts",
   }),
-  catchAsync(authController.verifyTwoFactor)
+  catchAsync(authController.verifyTwoFactor),
 );
 
 /**
@@ -212,20 +194,14 @@ authRoutes.post(
  * @description Disable two-factor authentication
  * @access Private
  */
-authRoutes.post(
-  '/2fa/disable',
-  catchAsync(authController.disableTwoFactor)
-);
+authRoutes.post("/2fa/disable", catchAsync(authController.disableTwoFactor));
 
 /**
  * @route GET /api/v1/school/auth/sessions
  * @description Get active sessions
  * @access Private
  */
-authRoutes.get(
-  '/sessions',
-  catchAsync(authController.getSessions)
-);
+authRoutes.get("/sessions", catchAsync(authController.getSessions));
 
 /**
  * @route DELETE /api/v1/school/auth/sessions/:sessionId
@@ -233,8 +209,8 @@ authRoutes.get(
  * @access Private
  */
 authRoutes.delete(
-  '/sessions/:sessionId',
-  catchAsync(authController.terminateSession)
+  "/sessions/:sessionId",
+  catchAsync(authController.terminateSession),
 );
 
 /**
@@ -242,9 +218,6 @@ authRoutes.delete(
  * @description Terminate all sessions (except current)
  * @access Private
  */
-authRoutes.delete(
-  '/sessions',
-  catchAsync(authController.terminateAllSessions)
-);
+authRoutes.delete("/sessions", catchAsync(authController.terminateAllSessions));
 
 export default authRoutes;

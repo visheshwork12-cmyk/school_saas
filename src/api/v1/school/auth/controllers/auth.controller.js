@@ -1,13 +1,13 @@
 // src/api/v1/school/auth/controllers/auth.controller.js
 
-import catchAsync from '#utils/core/catchAsync.js';
-import { authService } from '#api/v1/school/auth/services/auth.service.js';
-import { responseFormatter } from '#utils/core/responseFormatter.js';
-import { logger } from '#utils/core/logger.js';
+import catchAsync from "#utils/core/catchAsync.js";
+import { authService } from "#api/v1/school/auth/services/auth.service.js";
+import { responseFormatter } from "#utils/core/responseFormatter.js";
+import { logger } from "#utils/core/logger.js";
 
 /**
  * Authentication Controller for School Management System
- * 
+ *
  * @namespace AuthController
  * @description Handles user authentication operations with multi-tenant support
  */
@@ -76,17 +76,17 @@ import { logger } from '#utils/core/logger.js';
 const authController = {
   /**
    * Handles user login with multi-tenant support
-   * 
+   *
    * @function login
    * @memberof AuthController
    * @async
    * @param {Object} req - Express request object
    * @param {string} req.body.email - User email
-   * @param {string} req.body.password - User password  
+   * @param {string} req.body.password - User password
    * @param {string} req.body.schoolId - School identifier
    * @param {Object} res - Express response object
    * @returns {Promise<void>} Authentication result with tokens
-   * 
+   *
    * @example
    * // POST /api/v1/auth/login
    * {
@@ -97,13 +97,16 @@ const authController = {
    */
   login: catchAsync(async (req, res) => {
     const { email, password, schoolId } = req.body;
-    const tokens = await authService.login({ email, password, schoolId }, req.tenant);
-    responseFormatter.success(res, 'Login successful', tokens);
+    const tokens = await authService.login(
+      { email, password, schoolId },
+      req.tenant,
+    );
+    responseFormatter.success(res, "Login successful", tokens);
   }),
 
   /**
    * Handles user registration in multi-tenant context
-   * 
+   *
    * @function register
    * @memberof AuthController
    * @async
@@ -114,13 +117,13 @@ const authController = {
   register: catchAsync(async (req, res) => {
     const userData = req.body;
     const user = await authService.register(userData, req.tenant);
-    responseFormatter.success(res, 'Registration successful', user, 201);
+    responseFormatter.success(res, "Registration successful", user, 201);
   }),
 
   /**
    * Handles JWT token refresh
-   * 
-   * @function refresh  
+   *
+   * @function refresh
    * @memberof AuthController
    * @async
    * @param {Object} req - Express request object with refresh token
@@ -130,23 +133,26 @@ const authController = {
   refresh: catchAsync(async (req, res) => {
     const { refreshToken } = req.body;
     const newTokens = await authService.refreshToken(refreshToken);
-    responseFormatter.success(res, 'Token refreshed', newTokens);
+    responseFormatter.success(res, "Token refreshed", newTokens);
   }),
 
   /**
    * Handles user logout and token invalidation
-   * 
+   *
    * @function logout
-   * @memberof AuthController  
+   * @memberof AuthController
    * @async
    * @param {Object} req - Express request object with auth headers
    * @param {Object} res - Express response object
    * @returns {Promise<void>} Logout confirmation
    */
   logout: catchAsync(async (req, res) => {
-    await authService.logout(req.user.id, req.headers.authorization.split(' ')[1]);
-    responseFormatter.success(res, 'Logout successful');
-  })
+    await authService.logout(
+      req.user.id,
+      req.headers.authorization.split(" ")[1],
+    );
+    responseFormatter.success(res, "Logout successful");
+  }),
 };
 
 export { authController };

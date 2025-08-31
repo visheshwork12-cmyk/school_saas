@@ -1,16 +1,16 @@
 // src/core/subscription/services/subscription-lifecycle.service.js
 
-import { SubscriptionModel } from '#domain/models/platform/subscription.model.js';
-import { OrganizationRepository } from '#core/repositories/platform/organization.repository.js';
-import { BusinessException } from '#exceptions/business.exception.js'; // Assume exists
-import { logger } from '#utils/core/logger.js';
-import config from '#config/index.js';
-import moment from 'moment';
+import { SubscriptionModel } from "#domain/models/platform/subscription.model.js";
+import { OrganizationRepository } from "#core/repositories/platform/organization.repository.js";
+import { BusinessException } from "#exceptions/business.exception.js"; // Assume exists
+import { logger } from "#utils/core/logger.js";
+import config from "#config/index.js";
+import moment from "moment";
 
 /**
  * @description Service for managing subscription lifecycle.
  * Handles creation, upgrade, suspension, etc.
- * 
+ *
  * @example
  * await subscriptionLifecycle.createTrial(orgId);
  */
@@ -26,16 +26,23 @@ class SubscriptionLifecycleService {
    */
   async createTrial(orgId) {
     try {
-      const trialEnd = moment().add(config.subscription.defaultTrialDays, 'days');
+      const trialEnd = moment().add(
+        config.subscription.defaultTrialDays,
+        "days",
+      );
 
       const subscription = await SubscriptionModel.create({
         organizationId: orgId,
-        planId: 'TRIAL',
-        status: 'TRIAL',
+        planId: "TRIAL",
+        status: "TRIAL",
         currentPeriod: { start: new Date(), end: trialEnd.toDate() },
         features: config.subscription.trialFeatures,
         limits: config.subscription.trialLimits,
-        trial: { isActive: true, startDate: new Date(), endDate: trialEnd.toDate() },
+        trial: {
+          isActive: true,
+          startDate: new Date(),
+          endDate: trialEnd.toDate(),
+        },
       });
 
       // Update organization
@@ -46,7 +53,7 @@ class SubscriptionLifecycleService {
       return subscription;
     } catch (err) {
       logger.error(`Trial creation failed: ${err.message}`);
-      throw new BusinessException('Trial creation failed');
+      throw new BusinessException("Trial creation failed");
     }
   }
 
@@ -56,7 +63,7 @@ class SubscriptionLifecycleService {
    * @param {string} newPlan - New plan.
    * @returns {Promise<Object>} Updated subscription.
    */
-  async upgrade(orgId, newPlan) {
+  async upgrade(_orgId, _newPlan) {
     // Implement logic: validate payment, update plan, features, limits
     // ...
   }

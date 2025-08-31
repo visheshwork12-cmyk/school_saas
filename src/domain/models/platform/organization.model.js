@@ -1,7 +1,7 @@
 // src/domain/models/platform/organization.model.js
 
-import mongoose from 'mongoose';
-import { SUBSCRIPTION_STATUS } from '#domain/enums/subscription-status.enum.js';
+import mongoose from "mongoose";
+import { SUBSCRIPTION_STATUS } from "#domain/enums/subscription-status.enum.js";
 
 const { Schema } = mongoose;
 
@@ -17,23 +17,27 @@ const organizationSchema = new Schema(
       enum: Object.values(SUBSCRIPTION_STATUS),
       default: SUBSCRIPTION_STATUS.TRIAL,
     },
-    organizationId: { type: Schema.Types.ObjectId, required: true, unique: true }, // Self-reference for tenant
-    createdBy: { type: Schema.Types.ObjectId, ref: 'User' },
-    updatedBy: { type: Schema.Types.ObjectId, ref: 'User' },
+    organizationId: {
+      type: Schema.Types.ObjectId,
+      required: true,
+      unique: true,
+    }, // Self-reference for tenant
+    createdBy: { type: Schema.Types.ObjectId, ref: "User" },
+    updatedBy: { type: Schema.Types.ObjectId, ref: "User" },
     isDeleted: { type: Boolean, default: false },
     deletedAt: { type: Date },
-    deletedBy: { type: Schema.Types.ObjectId, ref: 'User' },
+    deletedBy: { type: Schema.Types.ObjectId, ref: "User" },
   },
   {
     timestamps: true, // Auto createdAt, updatedAt
     toJSON: { virtuals: true },
     toObject: { virtuals: true },
-  }
+  },
 );
 
 // Compound index for tenant isolation and performance
 organizationSchema.index({ organizationId: 1, subscriptionStatus: 1 });
-organizationSchema.index({ name: 'text' }); // For search
+organizationSchema.index({ name: "text" }); // For search
 
 // Soft delete plugin simulation
 organizationSchema.pre(/^find/, function (next) {
@@ -41,6 +45,6 @@ organizationSchema.pre(/^find/, function (next) {
   next();
 });
 
-const OrganizationModel = mongoose.model('Organization', organizationSchema);
+const OrganizationModel = mongoose.model("Organization", organizationSchema);
 
 export default OrganizationModel;

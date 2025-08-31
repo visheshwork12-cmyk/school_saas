@@ -1,12 +1,12 @@
 // src/shared/utils/generators/id.generator.js
 
-import { v4 as uuidv4 } from 'uuid';
-import { logger } from '#utils/core/logger.js';
+import { v4 as uuidv4 } from "uuid";
+import { logger } from "#utils/core/logger.js";
 
 /**
  * @description Utility for generating multi-tenant safe IDs.
  * Prefixes IDs with tenant context.
- * 
+ *
  * @example
  * const tenantId = idGenerator.generateTenantId();
  */
@@ -35,7 +35,7 @@ class IdGenerator {
    * @returns {boolean} Valid.
    */
   static validateTenantAccess(resourceId, tenant) {
-    const parts = resourceId.split('_');
+    const parts = resourceId.split("_");
     return parts[1] === tenant.organizationId.slice(4);
   }
 
