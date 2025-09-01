@@ -277,7 +277,7 @@ const configurePublicRoutes = (app, deploymentInfo) => {
 };
 
 /**
- * Configure Swagger documentation - FIXED FOR SERVERLESS
+ * Configure Swagger documentation - CSP COMPLIANT VERSION
  */
 const configureSwagger = (app, deploymentInfo) => {
   const swaggerOptions = {
@@ -286,39 +286,13 @@ const configureSwagger = (app, deploymentInfo) => {
       info: {
         title: "School Management System API",
         version: "1.0.0",
-        description: `
-## Multi-tenant School Management System API
-
-**Deployment**: ${deploymentInfo.platform} (${deploymentInfo.isServerless ? "Serverless" : "Traditional"})
-**Environment**: ${deploymentInfo.environment}
-
-### Authentication
-Most endpoints require JWT authentication. Include the token in the Authorization header:
-\`\`\`
-Authorization: Bearer <your-jwt-token>
-\`\`\`
-
-### Tenant Context
-For multi-tenant endpoints, include the school/tenant ID in the header:
-\`\`\`
-X-Tenant-ID: <your-school-id>
-\`\`\`
-        `,
-        contact: {
-          name: "Development Team",
-          email: "dev-team@yourschoolsystem.com",
-        },
-        license: {
-          name: "MIT",
-          url: "https://opensource.org/licenses/MIT",
-        },
+        description: "Multi-tenant School Management System API",
       },
       servers: [
         {
-          url: process.env.API_BASE_URL ||
-            (deploymentInfo.isServerless ?
-              `https://${process.env.VERCEL_URL || 'school-saas-ten.vercel.app'}` :
-              'http://localhost:3000'),
+          url: deploymentInfo.isServerless ?
+            `https://${process.env.VERCEL_URL || 'school-saas-ten.vercel.app'}` :
+            'http://localhost:3000',
           description: `${deploymentInfo.platform} server`,
         },
       ],
@@ -339,7 +313,6 @@ X-Tenant-ID: <your-school-id>
     },
     apis: [
       "./src/api/v1/**/*.js",
-      "./src/api/v1/**/*.controller.js",
       "./src/routes/**/*.js",
     ],
   };
@@ -351,56 +324,89 @@ X-Tenant-ID: <your-school-id>
     logger.error("Failed to generate Swagger docs", error);
     swaggerDocs = {
       openapi: "3.0.0",
-      info: { title: "API", version: "1.0.0" },
-      paths: {},
+      info: { title: "School Management API", version: "1.0.0" },
+      paths: {
+        "/health": {
+          "get": {
+            "summary": "Health Check",
+            "responses": { "200": { "description": "System is healthy" } }
+          }
+        }
+      },
     };
   }
 
-  // ✅ FIXED: Enable docs for serverless too
-  const enableDocs = true; // Always enable for now
+  // ✅ WORKING: Use regular swagger-ui-express with CSP fix
+  if (deploymentInfo.isServerless) {
+    // Custom route with relaxed CSP
+    app.get('/api-docs', (req, res) => {
+      // Set relaxed CSP headers just for this route
+      res.setHeader('Content-Security-Policy',
+        "default-src 'self'; " +
+        "script-src 'self' 'unsafe-inline' 'unsafe-eval' https://unpkg.com https://cdn.jsdelivr.net; " +
+        "style-src 'self' 'unsafe-inline' https://unpkg.com https://cdn.jsdelivr.net https://fonts.googleapis.com; " +
+        "font-src 'self' data: https://fonts.gstatic.com; " +
+        "img-src 'self' data: https:;"
+      );
 
-  if (enableDocs) {
-    // ✅ FIXED: Swagger UI configuration
-    app.use(
-      "/api-docs",
-      swaggerUi.serve,
-      swaggerUi.setup(swaggerDocs, {
-        explorer: true,
-        customSiteTitle: "School Management API Documentation",
-        customCss: ".swagger-ui .topbar { display: none }",
-        swaggerOptions: {
-          persistAuthorization: true,
-          displayRequestDuration: true,
-          docExpansion: "list",
-          filter: true,
-          tryItOutEnabled: true,
-        },
-      })
-    );
+      const swaggerHtml = `
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>School Management API Documentation</title>
+  <link rel="stylesheet" type="text/css" href="https://unpkg.com/swagger-ui-dist@5.9.0/swagger-ui.css" />
+  <style>
+    html { box-sizing: border-box; }
+    *, *:before, *:after { box-sizing: inherit; }
+    body { margin: 0; background: #fafafa; }
+    .swagger-ui .topbar { display: none; }
+  </style>
+</head>
+<body>
+  <div id="swagger-ui"></div>
+  <script src="https://unpkg.com/swagger-ui-dist@5.9.0/swagger-ui-bundle.js"></script>
+  <script src="https://unpkg.com/swagger-ui-dist@5.9.0/swagger-ui-standalone-preset.js"></script>
+  <script>
+    window.onload = function() {
+      const ui = SwaggerUIBundle({
+        url: '/api-docs.json',
+        dom_id: '#swagger-ui',
+        deepLinking: true,
+        presets: [
+          SwaggerUIBundle.presets.apis,
+          SwaggerUIStandalonePreset
+        ],
+        plugins: [
+          SwaggerUIBundle.plugins.DownloadUrl
+        ],
+        layout: "StandaloneLayout"
+      });
+    };
+  </script>
+</body>
+</html>`;
 
-    // ✅ FIXED: ReDoc configuration  
-    app.get("/docs", redoc({
-      title: "School Management API Documentation",
-      specUrl: "/api-docs.json",
-      redocOptions: {
-        theme: {
-          colors: {
-            primary: {
-              main: "#1976d2",
-            },
-          },
-        },
-      },
-    }));
+      res.setHeader('Content-Type', 'text/html; charset=utf-8');
+      res.send(swaggerHtml);
+    });
+  } else {
+    // Use standard swagger-ui-express for local development
+    app.use('/api-docs', swaggerUi.serve, swaggerUi.setup(swaggerDocs));
   }
 
-  // ✅ FIXED: JSON endpoint
+  // JSON endpoint
   app.get("/api-docs.json", (req, res) => {
-    res.setHeader("Content-Type", "application/json");
-    res.setHeader("Cache-Control", "public, max-age=3600");
+    res.setHeader("Content-Type", "application/json; charset=utf-8");
+    res.setHeader("Access-Control-Allow-Origin", "*");
     res.json(swaggerDocs);
   });
+
+  logger.info('📚 Swagger UI configured with CSP compliance');
 };
+
+
+
 
 
 /**
