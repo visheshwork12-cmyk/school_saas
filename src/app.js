@@ -276,9 +276,8 @@ const configurePublicRoutes = (app, deploymentInfo) => {
   });
 };
 
-
 /**
- * Configure Swagger documentation
+ * Configure Swagger documentation - FIXED FOR SERVERLESS
  */
 const configureSwagger = (app, deploymentInfo) => {
   const swaggerOptions = {
@@ -316,11 +315,10 @@ X-Tenant-ID: <your-school-id>
       },
       servers: [
         {
-          url:
-            process.env.API_BASE_URL ||
-            (deploymentInfo.isServerless
-              ? "https://your-project.vercel.app"
-              : "http://localhost:3000"),
+          url: process.env.API_BASE_URL ||
+            (deploymentInfo.isServerless ?
+              `https://${process.env.VERCEL_URL || 'school-saas-ten.vercel.app'}` :
+              'http://localhost:3000'),
           description: `${deploymentInfo.platform} server`,
         },
       ],
@@ -358,12 +356,11 @@ X-Tenant-ID: <your-school-id>
     };
   }
 
-  const enableDocs =
-    !deploymentInfo.isServerless ||
-    process.env.ENABLE_DOCS === "true" ||
-    deploymentInfo.environment === "development";
+  // ✅ FIXED: Enable docs for serverless too
+  const enableDocs = true; // Always enable for now
 
   if (enableDocs) {
+    // ✅ FIXED: Swagger UI configuration
     app.use(
       "/api-docs",
       swaggerUi.serve,
@@ -378,33 +375,33 @@ X-Tenant-ID: <your-school-id>
           filter: true,
           tryItOutEnabled: true,
         },
-      }),
+      })
     );
 
-    app.get(
-      "/docs",
-      redoc({
-        title: "School Management API Documentation",
-        specUrl: "/api-docs.json",
-        redocOptions: {
-          theme: {
-            colors: {
-              primary: {
-                main: "#1976d2",
-              },
+    // ✅ FIXED: ReDoc configuration  
+    app.get("/docs", redoc({
+      title: "School Management API Documentation",
+      specUrl: "/api-docs.json",
+      redocOptions: {
+        theme: {
+          colors: {
+            primary: {
+              main: "#1976d2",
             },
           },
         },
-      }),
-    );
+      },
+    }));
   }
 
+  // ✅ FIXED: JSON endpoint
   app.get("/api-docs.json", (req, res) => {
     res.setHeader("Content-Type", "application/json");
     res.setHeader("Cache-Control", "public, max-age=3600");
     res.json(swaggerDocs);
   });
 };
+
 
 /**
  * Configure tenant and logging middleware

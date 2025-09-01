@@ -18,29 +18,33 @@ import catchAsync from "#utils/core/catchAsync.js";
  * @returns {Promise<void>}
  */
 const tenantMiddleware = catchAsync(async (req, res, next) => {
-  // 🔹 Extended public endpoints list - no tenant validation required
+  // 🔹 Extended public endpoints list - FIXED VERSION
   const publicEndpoints = [
-    '/',
+    '/',                    // ← Root path (already working)
     '/health',
     '/status',
-    '/api-docs',
-    '/api-docs.json',
-    '/docs',
-    '/favicon.ico',
-    '/robots.txt'
+    '/api-docs',           // ← Swagger UI main path
+    '/api-docs.json',      // ← OpenAPI JSON spec
+    '/docs',               // ← ReDoc documentation
+    '/favicon.ico',        // ← Standard favicon
+    '/favicon.png',        // ← PNG favicon (ADD THIS)
+    '/robots.txt',         // ← SEO robots file
   ];
 
   // 🔹 Check for exact path matches and path patterns
   const isPublicEndpoint = publicEndpoints.some((endpoint) => {
+    // Exact match for root path
     if (endpoint === '/') {
       return req.path === '/';
     }
-    if (req.path.startsWith(endpoint + '/') || req.path === endpoint) {
+
+    // Exact match for other endpoints
+    if (req.path === endpoint) {
       return true;
     }
 
-    // Pattern match for swagger assets
-    if (req.path.startsWith("/api-docs/") && endpoint === "/api-docs") {
+    // Pattern match for swagger assets and sub-paths
+    if (endpoint === '/api-docs' && req.path.startsWith('/api-docs/')) {
       return true;
     }
 
