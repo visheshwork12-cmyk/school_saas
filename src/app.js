@@ -25,10 +25,10 @@ import swaggerUi from "swagger-ui-express";
 const getDeploymentInfo = () => {
   const isServerless = Boolean(
     process.env.DEPLOYMENT_TYPE === "serverless" ||
-      process.env.VERCEL ||
-      process.env.NETLIFY ||
-      process.env.AWS_LAMBDA_FUNCTION_NAME ||
-      process.env.FUNCTION_NAME,
+    process.env.VERCEL ||
+    process.env.NETLIFY ||
+    process.env.AWS_LAMBDA_FUNCTION_NAME ||
+    process.env.FUNCTION_NAME,
   );
 
   const platform = process.env.VERCEL
@@ -69,10 +69,10 @@ const configureSecurity = (app, deploymentInfo) => {
       hsts: deploymentInfo.isServerless
         ? false
         : {
-            maxAge: 31536000,
-            includeSubDomains: true,
-            preload: true,
-          },
+          maxAge: 31536000,
+          includeSubDomains: true,
+          preload: true,
+        },
     }),
   );
 
@@ -205,7 +205,7 @@ const configureRateLimiting = (app, deploymentInfo) => {
           ip: req.ip,
           path: req.path,
           userAgent: req.get("User-Agent"),
-        }).catch(() => {});
+        }).catch(() => { });
         res.status(429).json({
           success: false,
           error: {
@@ -222,36 +222,60 @@ const configureRateLimiting = (app, deploymentInfo) => {
 /**
  * Configure public routes
  */
+/**
+ * Configure public routes
+ */
 const configurePublicRoutes = (app, deploymentInfo) => {
-  app.get("/health", (req, res) => {
+  // Root route - before tenant middleware
+  app.get('/', (req, res) => {
+    res.status(HTTP_STATUS.OK).json({
+      success: true,
+      message: 'Welcome to School ERP SaaS API',
+      version: baseConfig.versioning?.currentApiVersion || '1.0.0',
+      environment: baseConfig.env,
+      deployment: deploymentInfo,
+      endpoints: {
+        health: '/health',
+        status: '/status',
+        apiDocs: '/api-docs',
+        api: '/api/v1'
+      },
+      timestamp: new Date().toISOString()
+    });
+  });
+
+  // Health endpoint
+  app.get('/health', (req, res) => {
     const healthCheck = {
-      status: "healthy",
+      status: 'healthy',
       uptime: process.uptime(),
       environment: baseConfig.env,
       deployment: deploymentInfo,
-      version: baseConfig.versioning?.currentApiVersion || "1.0.0",
+      version: baseConfig.versioning?.currentApiVersion || '1.0.0',
       timestamp: new Date().toISOString(),
       memory: process.memoryUsage(),
       system: {
         nodeVersion: process.version,
         platform: process.platform,
-        arch: process.arch,
-      },
+        arch: process.arch
+      }
     };
     res.status(HTTP_STATUS.OK).json(healthCheck);
   });
 
-  app.get("/status", (req, res) => {
+  // Status endpoint
+  app.get('/status', (req, res) => {
     res.status(HTTP_STATUS.OK).json({
-      status: "OK",
+      status: 'OK',
       uptime: process.uptime(),
       environment: baseConfig.env,
       platform: deploymentInfo.platform,
       serverless: deploymentInfo.isServerless,
-      timestamp: new Date().toISOString(),
+      timestamp: new Date().toISOString()
     });
   });
 };
+
 
 /**
  * Configure Swagger documentation
@@ -441,7 +465,7 @@ const configureTenantAndLogging = (app, deploymentInfo) => {
 /**
  * Configure API routes
  */
-const configureApiRoutes = async (app) => {
+const configureApiRoutes = async (app, deploymentInfo) => {
   try {
     const apiRoutes = await import("#routes/api.routes.js");
     app.use("/api/v1", apiRoutes.default || apiRoutes);

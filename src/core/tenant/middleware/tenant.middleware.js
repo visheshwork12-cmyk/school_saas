@@ -20,19 +20,22 @@ import catchAsync from "#utils/core/catchAsync.js";
 const tenantMiddleware = catchAsync(async (req, res, next) => {
   // 🔹 Extended public endpoints list - no tenant validation required
   const publicEndpoints = [
-    "/health",
-    "/status",
-    "/api-docs", // Swagger UI
-    "/api-docs.json", // OpenAPI JSON spec
-    "/docs", // ReDoc documentation
-    "/favicon.ico", // Favicon requests
-    "/robots.txt", // SEO robots file
+    '/',
+    '/health',
+    '/status',
+    '/api-docs',
+    '/api-docs.json',
+    '/docs',
+    '/favicon.ico',
+    '/robots.txt'
   ];
 
   // 🔹 Check for exact path matches and path patterns
   const isPublicEndpoint = publicEndpoints.some((endpoint) => {
-    // Exact match
-    if (req.path === endpoint) {
+    if (endpoint === '/') {
+      return req.path === '/';
+    }
+    if (req.path.startsWith(endpoint + '/') || req.path === endpoint) {
       return true;
     }
 
