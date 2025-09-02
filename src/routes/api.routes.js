@@ -6,8 +6,9 @@ import { responseVersionMiddleware } from "#core/versioning/middleware/response-
 import platformRoutes from "./platform.routes.js";
 import schoolRoutes from "#routes/school.routes.js";
 import productsRoutes from "#routes/products.routes.js";
+import apiDocsRoutes from "./api-docs.routes.js";
 import sharedRoutes from "#routes/shared.routes.js";
-import { AuditService } from "#core/audit/services/audit-log.service.js"; // Assume exists
+import { AuditService } from "#core/audit/services/audit-log.service.js";
 import HTTP_STATUS from "#constants/http-status.js";
 import baseConfig from "#shared/config/environments/base.config.js";
 
@@ -35,6 +36,7 @@ apiRoutes.use(async (req, res, next) => {
 
 // Route mounting
 apiRoutes.use("/platform", platformRoutes);
+apiRoutes.use('/', apiDocsRoutes);
 apiRoutes.use("/school", schoolRoutes);
 apiRoutes.use("/products", productsRoutes);
 apiRoutes.use("/shared", sharedRoutes);
