@@ -1,0 +1,833 @@
+openapi: 3.0.0
+info:
+  title: School Management System API
+  version: 1.0.0
+  description: |
+    ## Multi-tenant School Management System API
+    
+    Complete API documentation for the School ERP SaaS platform.
+    
+    ### Authentication
+    Most endpoints require JWT authentication:
+    ```
+    Authorization: Bearer <your-jwt-token>
+    ```
+    
+    ### Tenant Context
+    Include school/tenant ID in header:
+    ```
+    X-Tenant-ID: <your-school-id>
+    ```
+  contact:
+    name: Development Team
+    email: dev-team@yourschoolsystem.com
+  license:
+    name: MIT
+
+servers:
+  - url: https://school-saas-ten.vercel.app
+    description: Production server
+  - url: http://localhost:3000
+    description: Development server
+
+components:
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+    tenantHeader:
+      type: apiKey
+      in: header
+      name: X-Tenant-ID
+
+  schemas:
+    Organization:
+      type: object
+      properties:
+        _id:
+          type: string
+          example: "64f7b1c4e4b0c8f8a1234567"
+        name:
+          type: string
+          example: "ABC School Group"
+        type:
+          type: string
+          enum: [enterprise, individual]
+        status:
+          type: string
+          enum: [active, suspended, inactive]
+        contactInfo:
+          type: object
+          properties:
+            email:
+              type: string
+              example: "contact@abcschool.com"
+            phone:
+              type: string
+              example: "+1234567890"
+
+    Student:
+      type: object
+      properties:
+        _id:
+          type: string
+          example: "64f7b1c4e4b0c8f8a1234568"
+        admissionNumber:
+          type: string
+          example: "ADM2025001"
+        personalInfo:
+          type: object
+          properties:
+            firstName:
+              type: string
+              example: "John"
+            lastName:
+              type: string
+              example: "Doe"
+            email:
+              type: string
+              example: "john.doe@example.com"
+            dateOfBirth:
+              type: string
+              format: date
+              example: "2010-01-15"
+            gender:
+              type: string
+              enum: [male, female, other]
+        academic:
+          type: object
+          properties:
+            classId:
+              type: string
+              example: "64f7b1c4e4b0c8f8a1234569"
+            academicYear:
+              type: string
+              example: "2024-25"
+
+    Class:
+      type: object
+      properties:
+        _id:
+          type: string
+        name:
+          type: string
+          example: "Class 10"
+        section:
+          type: string
+          example: "A"
+        academicYear:
+          type: string
+          example: "2024-25"
+        capacity:
+          type: object
+          properties:
+            maxStudents:
+              type: integer
+              example: 40
+            currentStudents:
+              type: integer
+              example: 35
+
+security:
+  - bearerAuth: []
+
+paths:
+  # System APIs
+  /health:
+    get:
+      tags: [System]
+      summary: Health Check
+      description: Check system health status
+      security: []
+      responses:
+        '200':
+          description: System is healthy
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status:
+                    type: string
+                    example: healthy
+                  uptime:
+                    type: number
+                  timestamp:
+                    type: string
+
+  # Platform APIs
+  /api/v1/platform/organizations:
+    get:
+      tags: [Platform - Organizations]
+      summary: List Organizations
+      description: Get paginated list of organizations
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: page
+          in: query
+          schema:
+            type: integer
+            default: 1
+        - name: limit
+          in: query
+          schema:
+            type: integer
+            default: 10
+        - name: status
+          in: query
+          schema:
+            type: string
+            enum: [active, suspended, inactive]
+      responses:
+        '200':
+          description: Organizations list
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                  data:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/Organization'
+                  pagination:
+                    type: object
+                    properties:
+                      page:
+                        type: integer
+                      limit:
+                        type: integer
+                      total:
+                        type: integer
+
+    post:
+      tags: [Platform - Organizations]
+      summary: Create Organization
+      description: Create a new organization
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [name, type]
+              properties:
+                name:
+                  type: string
+                  example: "New School Group"
+                type:
+                  type: string
+                  enum: [enterprise, individual]
+                contactInfo:
+                  type: object
+                  properties:
+                    email:
+                      type: string
+                    phone:
+                      type: string
+                    address:
+                      type: object
+                      properties:
+                        street:
+                          type: string
+                        city:
+                          type: string
+                        country:
+                          type: string
+      responses:
+        '201':
+          description: Organization created successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                  data:
+                    $ref: '#/components/schemas/Organization'
+
+  /api/v1/platform/organizations/{orgId}:
+    get:
+      tags: [Platform - Organizations]
+      summary: Get Organization
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: orgId
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Organization details
+
+    put:
+      tags: [Platform - Organizations]
+      summary: Update Organization
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: orgId
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                name:
+                  type: string
+                status:
+                  type: string
+                  enum: [active, suspended, inactive]
+      responses:
+        '200':
+          description: Organization updated
+
+  /api/v1/platform/subscriptions:
+    get:
+      tags: [Platform - Subscriptions]
+      summary: List Subscriptions
+      security:
+        - bearerAuth: []
+      responses:
+        '200':
+          description: Subscriptions list
+
+    post:
+      tags: [Platform - Subscriptions]
+      summary: Create Subscription
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                organizationId:
+                  type: string
+                planId:
+                  type: string
+                billingCycle:
+                  type: string
+                  enum: [monthly, yearly]
+      responses:
+        '201':
+          description: Subscription created
+
+  # School APIs
+  /api/v1/schools/{tenantId}/users:
+    get:
+      tags: [School - Users]
+      summary: List Users
+      security:
+        - bearerAuth: []
+        - tenantHeader: []
+      parameters:
+        - name: tenantId
+          in: path
+          required: true
+          schema:
+            type: string
+          example: "school_demo_123"
+        - name: role
+          in: query
+          schema:
+            type: string
+            enum: [admin, teacher, student, parent]
+        - name: status
+          in: query
+          schema:
+            type: string
+            enum: [active, inactive, suspended]
+      responses:
+        '200':
+          description: Users list
+
+    post:
+      tags: [School - Users]
+      summary: Create User
+      security:
+        - bearerAuth: []
+        - tenantHeader: []
+      parameters:
+        - name: tenantId
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                personalInfo:
+                  type: object
+                  properties:
+                    firstName:
+                      type: string
+                    lastName:
+                      type: string
+                    email:
+                      type: string
+                role:
+                  type: string
+                  enum: [admin, teacher, student, parent]
+                permissions:
+                  type: array
+                  items:
+                    type: string
+      responses:
+        '201':
+          description: User created
+
+  /api/v1/schools/{tenantId}/students:
+    get:
+      tags: [School - Students]
+      summary: List Students
+      security:
+        - bearerAuth: []
+        - tenantHeader: []
+      parameters:
+        - name: tenantId
+          in: path
+          required: true
+          schema:
+            type: string
+        - name: classId
+          in: query
+          schema:
+            type: string
+        - name: status
+          in: query
+          schema:
+            type: string
+            enum: [active, inactive, graduated, transferred]
+      responses:
+        '200':
+          description: Students list
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                  data:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/Student'
+
+    post:
+      tags: [School - Students]
+      summary: Create Student
+      security:
+        - bearerAuth: []
+        - tenantHeader: []
+      parameters:
+        - name: tenantId
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/Student'
+            example:
+              admissionNumber: "ADM2025001"
+              personalInfo:
+                firstName: "John"
+                lastName: "Doe"
+                email: "john.doe@example.com"
+                dateOfBirth: "2010-01-15"
+                gender: "male"
+              academic:
+                classId: "64f7b1c4e4b0c8f8a1234569"
+                academicYear: "2024-25"
+      responses:
+        '201':
+          description: Student created
+
+  /api/v1/schools/{tenantId}/classes:
+    get:
+      tags: [School - Classes]
+      summary: List Classes
+      security:
+        - bearerAuth: []
+        - tenantHeader: []
+      parameters:
+        - name: tenantId
+          in: path
+          required: true
+          schema:
+            type: string
+        - name: academicYear
+          in: query
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Classes list
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                  data:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/Class'
+
+    post:
+      tags: [School - Classes]
+      summary: Create Class
+      security:
+        - bearerAuth: []
+        - tenantHeader: []
+      parameters:
+        - name: tenantId
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                name:
+                  type: string
+                section:
+                  type: string
+                academicYear:
+                  type: string
+                capacity:
+                  type: object
+                  properties:
+                    maxStudents:
+                      type: integer
+      responses:
+        '201':
+          description: Class created
+
+  # Product APIs - Academic
+  /api/v1/schools/{tenantId}/products/academic/exams:
+    get:
+      tags: [Product - Academic]
+      summary: List Exams
+      security:
+        - bearerAuth: []
+        - tenantHeader: []
+      parameters:
+        - name: tenantId
+          in: path
+          required: true
+          schema:
+            type: string
+        - name: academicYear
+          in: query
+          schema:
+            type: string
+        - name: status
+          in: query
+          schema:
+            type: string
+            enum: [draft, scheduled, ongoing, completed]
+      responses:
+        '200':
+          description: Exams list
+
+    post:
+      tags: [Product - Academic]
+      summary: Create Exam
+      security:
+        - bearerAuth: []
+        - tenantHeader: []
+      parameters:
+        - name: tenantId
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                name:
+                  type: string
+                  example: "Mid Term Examination"
+                type:
+                  type: string
+                  enum: [unit_test, mid_term, final, surprise]
+                schedule:
+                  type: object
+                  properties:
+                    startDate:
+                      type: string
+                      format: date
+                    endDate:
+                      type: string
+                      format: date
+                classes:
+                  type: array
+                  items:
+                    type: string
+      responses:
+        '201':
+          description: Exam created
+
+  /api/v1/schools/{tenantId}/products/academic/attendance:
+    get:
+      tags: [Product - Academic]
+      summary: Get Attendance
+      security:
+        - bearerAuth: []
+        - tenantHeader: []
+      parameters:
+        - name: tenantId
+          in: path
+          required: true
+          schema:
+            type: string
+        - name: date
+          in: query
+          schema:
+            type: string
+            format: date
+        - name: classId
+          in: query
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Attendance records
+
+    post:
+      tags: [Product - Academic]
+      summary: Mark Attendance
+      security:
+        - bearerAuth: []
+        - tenantHeader: []
+      parameters:
+        - name: tenantId
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                date:
+                  type: string
+                  format: date
+                classId:
+                  type: string
+                records:
+                  type: array
+                  items:
+                    type: object
+                    properties:
+                      studentId:
+                        type: string
+                      status:
+                        type: string
+                        enum: [present, absent, late, half_day]
+      responses:
+        '201':
+          description: Attendance marked
+
+  # Product APIs - Finance
+  /api/v1/schools/{tenantId}/products/finance/fees:
+    get:
+      tags: [Product - Finance]
+      summary: List Fee Structures
+      security:
+        - bearerAuth: []
+        - tenantHeader: []
+      parameters:
+        - name: tenantId
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Fee structures list
+
+    post:
+      tags: [Product - Finance]
+      summary: Create Fee Structure
+      security:
+        - bearerAuth: []
+        - tenantHeader: []
+      parameters:
+        - name: tenantId
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                name:
+                  type: string
+                academicYear:
+                  type: string
+                components:
+                  type: array
+                  items:
+                    type: object
+                    properties:
+                      name:
+                        type: string
+                      amount:
+                        type: number
+                      type:
+                        type: string
+                        enum: [mandatory, optional]
+      responses:
+        '201':
+          description: Fee structure created
+
+  /api/v1/schools/{tenantId}/products/finance/transactions:
+    get:
+      tags: [Product - Finance]
+      summary: List Transactions
+      security:
+        - bearerAuth: []
+        - tenantHeader: []
+      parameters:
+        - name: tenantId
+          in: path
+          required: true
+          schema:
+            type: string
+        - name: studentId
+          in: query
+          schema:
+            type: string
+        - name: status
+          in: query
+          schema:
+            type: string
+            enum: [pending, completed, failed]
+      responses:
+        '200':
+          description: Transactions list
+
+    post:
+      tags: [Product - Finance]
+      summary: Process Payment
+      security:
+        - bearerAuth: []
+        - tenantHeader: []
+      parameters:
+        - name: tenantId
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                studentId:
+                  type: string
+                amount:
+                  type: number
+                paymentMethod:
+                  type: string
+                  enum: [cash, card, upi, bank_transfer]
+                components:
+                  type: array
+                  items:
+                    type: object
+      responses:
+        '201':
+          description: Payment processed
+
+  # Product APIs - Library
+  /api/v1/schools/{tenantId}/products/library/books:
+    get:
+      tags: [Product - Library]
+      summary: List Books
+      security:
+        - bearerAuth: []
+        - tenantHeader: []
+      parameters:
+        - name: tenantId
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Books list
+
+    post:
+      tags: [Product - Library]
+      summary: Add Book
+      security:
+        - bearerAuth: []
+        - tenantHeader: []
+      parameters:
+        - name: tenantId
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                title:
+                  type: string
+                author:
+                  type: string
+                isbn:
+                  type: string
+                category:
+                  type: string
+      responses:
+        '201':
+          description: Book added

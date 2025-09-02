@@ -293,221 +293,429 @@ const configurePublicRoutes = (app, deploymentInfo) => {
 };
 
 /**
- * Configure Swagger documentation - BULLETPROOF SERVERLESS VERSION
+ * Configure Swagger documentation - DOCS FOLDER + POSTMAN INTEGRATED
  */
-const configureSwagger = (app, deploymentInfo) => {
-  const swaggerOptions = {
-    definition: {
-      openapi: "3.0.0",
-      info: {
-        title: "School Management System API",
-        version: "1.0.0",
-        description: "Multi-tenant School Management System API",
-        contact: {
-          name: "Development Team",
-          email: "dev-team@yourschoolsystem.com",
-        },
-      },
-      servers: [
-        {
-          url: deploymentInfo.isServerless ?
-            `https://${process.env.VERCEL_URL || 'school-saas-ten.vercel.app'}` :
-            'http://localhost:3000',
-          description: `${deploymentInfo.platform} server`,
-        },
-      ],
-      components: {
-        securitySchemes: {
-          bearerAuth: {
-            type: "http",
-            scheme: "bearer",
-            bearerFormat: "JWT",
-          },
-          tenantHeader: {
-            type: "apiKey",
-            in: "header",
-            name: "X-Tenant-ID",
-          },
-        },
-      },
-    },
-    apis: [
-      "./src/api/v1/**/*.js",
-      "./src/routes/**/*.js",
-    ],
-  };
-
-  let swaggerDocs;
+const configureSwagger = async (app, deploymentInfo) => {
   try {
-    swaggerDocs = swaggerJsdoc(swaggerOptions);
-  } catch (error) {
-    logger.error("Failed to generate Swagger docs", error);
-    swaggerDocs = {
-      openapi: "3.0.0",
-      info: { title: "School Management API", version: "1.0.0" },
-      paths: {
-        "/health": {
-          "get": {
-            "summary": "Health Check",
-            "responses": {
-              "200": {
-                "description": "System is healthy"
+    // Import required modules
+    const fs = await import('fs/promises');
+    const path = await import('path');
+    const yaml = await import('js-yaml');
+    
+    let swaggerSpec;
+    
+    try {
+      // Try to load from OpenAPI YAML first (preferred)
+      const openApiPath = path.join(process.cwd(), 'docs/api/openapi.yaml');
+      const openApiContent = await fs.readFile(openApiPath, 'utf-8');
+      swaggerSpec = yaml.load(openApiContent);
+      logger.info('📄 Loaded OpenAPI spec from docs/api/openapi.yaml');
+    } catch (yamlError) {
+      try {
+        // Fallback to swagger-config.js
+        const { generateSwaggerSpec } = await import('../docs/api/swagger-config.js');
+        swaggerSpec = generateSwaggerSpec();
+        logger.info('📄 Generated spec from docs/api/swagger-config.js');
+      } catch (configError) {
+        // Final fallback to basic spec
+        swaggerSpec = {
+          openapi: "3.0.0",
+          info: { 
+            title: "School Management API", 
+            version: "1.0.0",
+            description: "School ERP SaaS API Documentation"
+          },
+          paths: {
+            "/health": {
+              "get": {
+                "summary": "Health Check",
+                "responses": { "200": { "description": "System is healthy" }}
               }
             }
           }
+        };
+        logger.warn('⚠️ Using fallback swagger spec');
+      }
+    }
+
+    // Serve OpenAPI JSON spec
+    app.get("/api-docs.json", (req, res) => {
+      res.setHeader("Content-Type", "application/json; charset=utf-8");
+      res.setHeader("Access-Control-Allow-Origin", "*");
+      res.setHeader("Cache-Control", "public, max-age=300");
+      res.json(swaggerSpec);
+    });
+
+    // Serve Postman Collections
+    app.get('/postman/:collection', async (req, res) => {
+      try {
+        const { collection } = req.params;
+        const allowedCollections = ['platform-apis', 'school-apis', 'product-apis'];
+        
+        if (!allowedCollections.includes(collection)) {
+          return res.status(400).json({ error: 'Invalid collection name' });
         }
-      },
+        
+        const filePath = path.join(process.cwd(), 'docs/api/postman', `${collection}.json`);
+        const content = await fs.readFile(filePath, 'utf-8');
+        
+        res.setHeader('Content-Type', 'application/json');
+        res.setHeader('Content-Disposition', `attachment; filename="${collection}.json"`);
+        res.setHeader('Cache-Control', 'public, max-age=3600');
+        res.send(content);
+        
+        logger.info(`📬 Postman collection downloaded: ${collection}.json`);
+      } catch (error) {
+        logger.error(`Failed to serve Postman collection: ${collection}`, error);
+        res.status(404).json({ error: 'Collection not found. Run "npm run docs:postman" to generate collections.' });
+      }
+    });
+
+    // Check if Postman collections exist
+    const checkPostmanCollections = async () => {
+      const collections = ['platform-apis.json', 'school-apis.json', 'product-apis.json'];
+      const existingCollections = [];
+      
+      for (const collection of collections) {
+        try {
+          const filePath = path.join(process.cwd(), 'docs/api/postman', collection);
+          await fs.access(filePath);
+          existingCollections.push(collection);
+        } catch (error) {
+          // Collection doesn't exist
+        }
+      }
+      
+      return existingCollections;
     };
-  }
 
-  // ✅ BULLETPROOF: Custom Swagger UI implementation
-  app.get('/api-docs', (req, res) => {
-    const baseUrl = `${req.protocol}://${req.get('host')}`;
+    const existingCollections = await checkPostmanCollections();
 
-    const swaggerHtml = `
+    // Enhanced Swagger UI route with Postman integration
+    app.get('/api-docs', (req, res) => {
+      res.setHeader('Content-Security-Policy',
+        "default-src 'self'; " +
+        "script-src 'self' 'unsafe-inline' 'unsafe-eval' https://unpkg.com; " +
+        "style-src 'self' 'unsafe-inline' https://unpkg.com https://fonts.googleapis.com; " +
+        "font-src 'self' https://fonts.gstatic.com; " +
+        "img-src 'self' data: https:;"
+      );
+
+      const baseUrl = `${req.protocol}://${req.get('host')}`;
+      
+      const swaggerHtml = `
 <!DOCTYPE html>
 <html lang="en">
 <head>
   <meta charset="UTF-8">
   <title>School Management API Documentation</title>
   <link rel="stylesheet" type="text/css" href="https://unpkg.com/swagger-ui-dist@5.9.0/swagger-ui.css" />
-  <link rel="icon" type="image/png" href="data:image/png;base64,iVBORw0KGgo=" sizes="32x32" />
   <style>
-    html {
-      box-sizing: border-box;
-      overflow: -moz-scrollbars-vertical;
-      overflow-y: scroll;
+    .swagger-ui .topbar { display: none; }
+    .swagger-ui .info { margin-bottom: 20px; }
+    
+    .header-section {
+      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+      color: white;
+      padding: 30px 20px;
+      margin-bottom: 0;
     }
-    *, *:before, *:after {
-      box-sizing: inherit;
+    
+    .header-section h1 {
+      margin: 0 0 10px 0;
+      font-size: 2.5em;
+      font-weight: 300;
     }
-    body {
+    
+    .header-section p {
       margin: 0;
-      background: #fafafa;
+      font-size: 1.1em;
+      opacity: 0.9;
     }
-    .swagger-ui .topbar {
-      display: none;
+    
+    .docs-navigation {
+      background: #f8f9fa;
+      padding: 20px;
+      border-bottom: 1px solid #e9ecef;
+    }
+    
+    .docs-link {
+      display: inline-block;
+      margin: 5px 10px;
+      padding: 10px 16px;
+      background: #1976d2;
+      color: white;
+      text-decoration: none;
+      border-radius: 6px;
+      font-weight: 500;
+      transition: all 0.3s ease;
+    }
+    
+    .docs-link:hover {
+      background: #1565c0;
+      transform: translateY(-2px);
+      box-shadow: 0 4px 8px rgba(0,0,0,0.2);
+    }
+    
+    .postman-section {
+      background: #fff3cd;
+      border: 1px solid #ffeaa7;
+      border-radius: 8px;
+      padding: 20px;
+      margin: 20px;
+    }
+    
+    .postman-link {
+      display: inline-block;
+      margin: 5px 8px;
+      padding: 12px 20px;
+      background: #ff6c37;
+      color: white;
+      text-decoration: none;
+      border-radius: 6px;
+      font-weight: bold;
+      transition: all 0.3s ease;
+      box-shadow: 0 2px 4px rgba(255, 108, 55, 0.3);
+    }
+    
+    .postman-link:hover {
+      background: #e55a2b;
+      transform: translateY(-2px);
+      box-shadow: 0 4px 12px rgba(255, 108, 55, 0.4);
+    }
+    
+    .postman-link:active {
+      transform: translateY(0);
+    }
+    
+    .status-badge {
+      display: inline-block;
+      padding: 4px 8px;
+      background: #28a745;
+      color: white;
+      border-radius: 12px;
+      font-size: 0.8em;
+      margin-left: 8px;
+    }
+    
+    .warning-badge {
+      background: #ffc107;
+      color: #212529;
+    }
+    
+    .instructions {
+      background: #e3f2fd;
+      border-left: 4px solid #2196f3;
+      padding: 15px;
+      margin: 15px 0;
+      border-radius: 0 4px 4px 0;
+    }
+    
+    .instructions h4 {
+      margin: 0 0 10px 0;
+      color: #1976d2;
+    }
+    
+    .instructions ol {
+      margin: 10px 0;
+      padding-left: 20px;
+    }
+    
+    .instructions code {
+      background: #f5f5f5;
+      padding: 2px 6px;
+      border-radius: 3px;
+      font-family: 'Monaco', 'Consolas', monospace;
     }
   </style>
 </head>
 <body>
+  <!-- Header Section -->
+  <div class="header-section">
+    <h1>Hensing API</h1>
+    <p>Complete API documentation for multi-tenant School Management System</p>
+  </div>
+
+  <!-- Documentation Navigation -->
+  <div class="docs-navigation">
+    <h3>📚 Complete Documentation</h3>
+    <a href="/docs/architecture/system-design" class="docs-link">🏗️ System Architecture</a>
+    <a href="/docs/architecture/database-schema" class="docs-link">🗄️ Database Schema</a>
+    <a href="/docs/architecture/multi-tenancy" class="docs-link">🏢 Multi-Tenancy</a>
+    <a href="/docs/architecture/security-model" class="docs-link">🔐 Security Model</a>
+    <a href="/docs/api/examples" class="docs-link">📖 API Examples</a>
+  </div>
+
+  <!-- Postman Collections Section -->
+  <div class="postman-section">
+    <h3>📬 Postman Collections</h3>
+    <p>Download ready-to-use Postman collections for testing APIs:</p>
+    
+    ${existingCollections.length > 0 ? `
+    <div style="margin: 15px 0;">
+      ${existingCollections.includes('platform-apis.json') ? 
+        `<a href="${baseUrl}/postman/platform-apis" class="postman-link" target="_blank">
+          🏢 Platform APIs <span class="status-badge">Ready</span>
+        </a>` : 
+        `<span class="postman-link" style="background: #6c757d; cursor: not-allowed;">
+          🏢 Platform APIs <span class="status-badge warning-badge">Missing</span>
+        </span>`
+      }
+      
+      ${existingCollections.includes('school-apis.json') ? 
+        `<a href="${baseUrl}/postman/school-apis" class="postman-link" target="_blank">
+          🏫 School APIs <span class="status-badge">Ready</span>
+        </a>` : 
+        `<span class="postman-link" style="background: #6c757d; cursor: not-allowed;">
+          🏫 School APIs <span class="status-badge warning-badge">Missing</span>
+        </span>`
+      }
+      
+      ${existingCollections.includes('product-apis.json') ? 
+        `<a href="${baseUrl}/postman/product-apis" class="postman-link" target="_blank">
+          🎓 Product APIs <span class="status-badge">Ready</span>
+        </a>` : 
+        `<span class="postman-link" style="background: #6c757d; cursor: not-allowed;">
+          🎓 Product APIs <span class="status-badge warning-badge">Missing</span>
+        </span>`
+      }
+    </div>
+    ` : `
+    <div style="background: #f8d7da; border: 1px solid #f5c6cb; border-radius: 4px; padding: 15px; margin: 15px 0;">
+      <strong>⚠️ No Postman collections found!</strong>
+      <p>Generate collections by running: <code>npm run docs:postman</code></p>
+    </div>
+    `}
+    
+    <div class="instructions">
+      <h4>🚀 Quick Setup Instructions:</h4>
+      <ol>
+        <li>Click on any collection link above to download JSON file</li>
+        <li>Open Postman → Import → Upload the downloaded JSON file</li>
+        <li>Update collection variables:
+          <ul>
+            <li><code>bearerToken</code> - Your JWT authentication token</li>
+            <li><code>tenantId</code> - Your school's tenant identifier</li>
+            <li><code>baseUrl</code> - API base URL (already set)</li>
+          </ul>
+        </li>
+        <li>Start testing APIs! 🎯</li>
+      </ol>
+      
+      <p><strong>💡 Tip:</strong> Each collection includes pre-request scripts for authentication and response validation tests.</p>
+    </div>
+    
+    <div style="margin-top: 15px; padding: 10px; background: #d1ecf1; border-radius: 4px;">
+      <strong>🔄 Auto-generate Collections:</strong>
+      <code>npm run docs:postman</code> - Regenerate from OpenAPI spec
+    </div>
+  </div>
+
+  <!-- Swagger UI Container -->
   <div id="swagger-ui"></div>
 
-  <script src="https://unpkg.com/swagger-ui-dist@5.9.0/swagger-ui-bundle.js" charset="UTF-8"></script>
-  <script src="https://unpkg.com/swagger-ui-dist@5.9.0/swagger-ui-standalone-preset.js" charset="UTF-8"></script>
+  <!-- Scripts -->
+  <script src="https://unpkg.com/swagger-ui-dist@5.9.0/swagger-ui-bundle.js"></script>
+  <script src="https://unpkg.com/swagger-ui-dist@5.9.0/swagger-ui-standalone-preset.js"></script>
   <script>
-    // ✅ FIXED: Proper initialization with error handling
-    window.onload = function() {
-      try {
-        // Check if SwaggerUIBundle is available
-        if (typeof SwaggerUIBundle === 'undefined') {
-          document.getElementById('swagger-ui').innerHTML = 
-            '<h2>Loading Swagger UI...</h2><p>Please wait while the documentation loads.</p>';
-          return;
-        }
-
-        const ui = SwaggerUIBundle({
-          url: '${baseUrl}/api-docs.json',
-          dom_id: '#swagger-ui',
-          deepLinking: true,
-          presets: [
-            SwaggerUIBundle.presets.apis,
-            SwaggerUIStandalonePreset
-          ],
-          plugins: [
-            SwaggerUIBundle.plugins.DownloadUrl
-          ],
-          layout: "StandaloneLayout",
-          persistAuthorization: true,
-          displayRequestDuration: true,
-          docExpansion: 'list',
-          filter: true,
-          tryItOutEnabled: true,
-          // ✅ KEY FIX: Disable problematic features
-          showExtensions: false,
-          showCommonExtensions: false,
-          onComplete: function() {
-            console.log('Swagger UI loaded successfully');
-          },
-          onFailure: function(error) {
-            console.error('Swagger UI failed to load:', error);
-            document.getElementById('swagger-ui').innerHTML = 
-              '<h2>Error Loading API Documentation</h2><p>Please try refreshing the page.</p>';
-          }
-        });
-
-        // Store reference globally
-        window.ui = ui;
+    // Initialize Swagger UI
+    const ui = SwaggerUIBundle({
+      url: '${baseUrl}/api-docs.json',
+      dom_id: '#swagger-ui',
+      deepLinking: true,
+      presets: [
+        SwaggerUIBundle.presets.apis,
+        SwaggerUIStandalonePreset
+      ],
+      plugins: [
+        SwaggerUIBundle.plugins.DownloadUrl
+      ],
+      layout: "StandaloneLayout",
+      docExpansion: 'list',
+      filter: true,
+      tryItOutEnabled: true,
+      persistAuthorization: true,
+      displayRequestDuration: true,
+      onComplete: function() {
+        console.log('📚 Swagger UI loaded successfully');
         
-      } catch (error) {
-        console.error('Error initializing Swagger UI:', error);
-        document.getElementById('swagger-ui').innerHTML = 
-          '<h2>Error Loading API Documentation</h2><p>' + error.message + '</p>';
-      }
-    };
-
-    // ✅ Fallback if window.onload doesn't fire
-    setTimeout(function() {
-      if (!window.ui && typeof SwaggerUIBundle !== 'undefined') {
-        window.onload();
-      }
-    }, 2000);
-  </script>
-</body>
-</html>`;
-
-    res.setHeader('Content-Type', 'text/html; charset=utf-8');
-    res.setHeader('Cache-Control', 'no-cache, no-store, must-revalidate');
-    res.send(swaggerHtml);
-  });
-
-  // ✅ JSON endpoint with CORS headers
-  app.get("/api-docs.json", (req, res) => {
-    res.setHeader("Content-Type", "application/json; charset=utf-8");
-    res.setHeader("Cache-Control", "public, max-age=300");
-    res.setHeader("Access-Control-Allow-Origin", "*");
-    res.setHeader("Access-Control-Allow-Methods", "GET");
-    res.json(swaggerDocs);
-  });
-
-  // ✅ Simple ReDoc alternative
-  app.get("/docs", (req, res) => {
-    const baseUrl = `${req.protocol}://${req.get('host')}`;
-
-    const redocHtml = `
-<!DOCTYPE html>
-<html>
-<head>
-  <title>School Management API Documentation</title>
-  <meta charset="utf-8"/>
-  <meta name="viewport" content="width=device-width, initial-scale=1">
-  <style>
-    body { margin: 0; padding: 0; }
-  </style>
-</head>
-<body>
-  <div id="redoc-container"></div>
-  <script src="https://cdn.jsdelivr.net/npm/redoc@2.1.2/bundles/redoc.standalone.js"></script>
-  <script>
-    Redoc.init('${baseUrl}/api-docs.json', {
-      theme: {
-        colors: {
-          primary: {
-            main: '#1976d2'
+        // Add custom styling
+        const style = document.createElement('style');
+        style.textContent = \`
+          .swagger-ui .btn.authorize {
+            background-color: #49cc90;
+            border-color: #49cc90;
           }
-        }
+          .swagger-ui .btn.execute {
+            background-color: #4990e2;
+            border-color: #4990e2;
+          }
+        \`;
+        document.head.appendChild(style);
+      },
+      onFailure: function(error) {
+        console.error('❌ Swagger UI failed to load:', error);
       }
-    }, document.getElementById('redoc-container'));
+    });
+
+    // Add download tracking
+    document.querySelectorAll('.postman-link').forEach(link => {
+      link.addEventListener('click', function(e) {
+        const collectionName = this.textContent.trim();
+        console.log(\`📥 Downloading Postman collection: \${collectionName}\`);
+        
+        // Optional: Add analytics tracking here
+        if (typeof gtag !== 'undefined') {
+          gtag('event', 'download', {
+            'event_category': 'postman_collection',
+            'event_label': collectionName
+          });
+        }
+      });
+    });
   </script>
 </body>
 </html>`;
 
-    res.setHeader('Content-Type', 'text/html; charset=utf-8');
-    res.send(redocHtml);
-  });
+      res.send(swaggerHtml);
+    });
 
-  logger.info('📚 Swagger UI configured for ' + deploymentInfo.platform);
+    // Generate Postman collections if they don't exist
+    if (existingCollections.length === 0) {
+      logger.info('🔄 No Postman collections found, attempting to generate...');
+      try {
+        const { generatePostmanCollections } = await import('../scripts/generate-postman.js');
+        await generatePostmanCollections();
+        logger.info('✅ Postman collections generated successfully');
+      } catch (error) {
+        logger.warn('⚠️ Could not auto-generate Postman collections:', error.message);
+        logger.info('💡 Run "npm run docs:postman" to generate collections manually');
+      }
+    }
+
+    logger.info(`📚 Swagger UI configured with DOCS + Postman integration (${existingCollections.length}/3 collections available)`);
+    
+  } catch (error) {
+    logger.error('Failed to configure Swagger with docs + postman integration:', error);
+    
+    // Fallback minimal configuration
+    app.get("/api-docs.json", (req, res) => {
+      res.json({
+        openapi: "3.0.0",
+        info: { title: "School Management API", version: "1.0.0" },
+        paths: {}
+      });
+    });
+    
+    app.get('/api-docs', (req, res) => {
+      res.send('<h1>API Documentation</h1><p>Error loading Swagger UI. Please check logs.</p>');
+    });
+    
+    logger.info('📚 Fallback Swagger configuration loaded');
+  }
 };
+
+
 
 
 
@@ -568,24 +776,19 @@ const configureTenantAndLogging = (app, deploymentInfo) => {
   });
 };
 
-/**
- * Configure API routes
- */
-const configureApiRoutes = async (app, deploymentInfo) => {
+// Import docs routes
+const configureApiRoutes = async (app) => {
   try {
+    // Existing API routes
     const apiRoutes = await import("#routes/api.routes.js");
     app.use("/api/v1", apiRoutes.default || apiRoutes);
+
+    // Add docs routes
+    const docsRoutes = await import("#routes/docs.routes.js");
+    app.use("/", docsRoutes.default || docsRoutes);
+
   } catch (error) {
-    logger.error("Failed to load API routes", error);
-    app.use("/api/v1", (req, res) => {
-      res.status(503).json({
-        success: false,
-        error: {
-          code: "SERVICE_UNAVAILABLE",
-          message: "API routes are temporarily unavailable",
-        },
-      });
-    });
+    logger.error("Failed to load routes", error);
   }
 };
 
