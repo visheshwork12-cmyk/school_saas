@@ -1,0 +1,715 @@
+{
+  "info": {
+    "name": "Platform APIs - School ERP",
+    "description": "Platform-level APIs",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "auth": {
+    "type": "bearer",
+    "bearer": [
+      {
+        "key": "token",
+        "value": "{{bearerToken}}",
+        "type": "string"
+      }
+    ]
+  },
+  "event": [
+    {
+      "listen": "prerequest",
+      "script": {
+        "type": "text/javascript",
+        "exec": [
+          "// Auto-generate timestamp",
+          "pm.globals.set(\"timestamp\", new Date().toISOString());",
+          "",
+          "// Check if bearer token exists",
+          "if (!pm.collectionVariables.get(\"bearerToken\")) {",
+          "    console.log(\"⚠️ Bearer token not set. Please update the bearerToken variable.\");",
+          "}",
+          "",
+          "// Add request logging",
+          "console.log(\"Making request to:\", pm.request.url.toString());"
+        ]
+      }
+    },
+    {
+      "listen": "test",
+      "script": {
+        "type": "text/javascript",
+        "exec": [
+          "// Basic response validation",
+          "pm.test(\"Status code is success\", function () {",
+          "    pm.expect(pm.response.code).to.be.oneOf([200, 201, 202, 204]);",
+          "});",
+          "",
+          "// Response time check",
+          "pm.test(\"Response time is less than 3000ms\", function () {",
+          "    pm.expect(pm.response.responseTime).to.be.below(3000);",
+          "});"
+        ]
+      }
+    }
+  ],
+  "variable": [
+    {
+      "key": "baseUrl",
+      "value": "https://school-saas-ten.vercel.app",
+      "type": "string"
+    },
+    {
+      "key": "localUrl",
+      "value": "http://localhost:3000",
+      "type": "string"
+    },
+    {
+      "key": "bearerToken",
+      "value": "your-jwt-token-here",
+      "type": "string"
+    },
+    {
+      "key": "tenantId",
+      "value": "school_demo_123",
+      "type": "string"
+    },
+    {
+      "key": "adminEmail",
+      "value": "admin@demo.com",
+      "type": "string"
+    }
+  ],
+  "item": [
+    {
+      "id": "09f9460b-3dc0-4c93-a9db-bea1c7af5701",
+      "name": "List Organizations",
+      "request": {
+        "name": "List Organizations",
+        "description": {
+          "content": "Get paginated list of organizations",
+          "type": "text/plain"
+        },
+        "url": {
+          "path": [
+            "api",
+            "v1",
+            "platform",
+            "organizations"
+          ],
+          "host": [
+            "{{baseUrl}}"
+          ],
+          "query": [
+            {
+              "disabled": false,
+              "key": "page",
+              "value": "1"
+            },
+            {
+              "disabled": false,
+              "key": "limit",
+              "value": "10"
+            },
+            {
+              "disabled": false,
+              "key": "status",
+              "value": "active"
+            }
+          ],
+          "variable": []
+        },
+        "header": [
+          {
+            "key": "Accept",
+            "value": "application/json"
+          }
+        ],
+        "method": "GET",
+        "auth": {
+          "type": "bearer",
+          "bearer": [
+            {
+              "key": "token",
+              "value": "{{bearerToken}}"
+            }
+          ]
+        }
+      },
+      "response": [
+        {
+          "id": "9637f38b-b691-4e31-a705-8e144ca9b0e9",
+          "name": "Organizations list",
+          "originalRequest": {
+            "url": {
+              "path": [
+                "api",
+                "v1",
+                "platform",
+                "organizations"
+              ],
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "query": [
+                {
+                  "key": "page",
+                  "value": "1"
+                },
+                {
+                  "key": "limit",
+                  "value": "10"
+                },
+                {
+                  "key": "status",
+                  "value": "active"
+                }
+              ],
+              "variable": []
+            },
+            "header": [
+              {
+                "description": {
+                  "content": "Added as a part of security scheme: bearer",
+                  "type": "text/plain"
+                },
+                "key": "Authorization",
+                "value": "Bearer <token>"
+              },
+              {
+                "key": "Accept",
+                "value": "application/json"
+              }
+            ],
+            "method": "GET",
+            "body": {}
+          },
+          "status": "OK",
+          "code": 200,
+          "header": [
+            {
+              "key": "Content-Type",
+              "value": "application/json"
+            }
+          ],
+          "body": "{\n  \"success\": true,\n  \"data\": [\n    {\n      \"_id\": \"64f7b1c4e4b0c8f8a1234567\",\n      \"name\": \"ABC School Group\",\n      \"type\": \"individual\",\n      \"status\": \"suspended\",\n      \"contactInfo\": {\n        \"email\": \"contact@abcschool.com\",\n        \"phone\": \"+1234567890\"\n      }\n    },\n    {\n      \"_id\": \"64f7b1c4e4b0c8f8a1234567\",\n      \"name\": \"ABC School Group\",\n      \"type\": \"enterprise\",\n      \"status\": \"inactive\",\n      \"contactInfo\": {\n        \"email\": \"contact@abcschool.com\",\n        \"phone\": \"+1234567890\"\n      }\n    }\n  ],\n  \"pagination\": {\n    \"page\": 7592,\n    \"limit\": 756,\n    \"total\": 7038\n  }\n}",
+          "cookie": [],
+          "_postman_previewlanguage": "json"
+        }
+      ],
+      "event": [],
+      "protocolProfileBehavior": {
+        "disableBodyPruning": true
+      }
+    },
+    {
+      "id": "9e62e2e2-704c-4260-9038-64e3b0744140",
+      "name": "Create Organization",
+      "request": {
+        "name": "Create Organization",
+        "description": {
+          "content": "Create a new organization",
+          "type": "text/plain"
+        },
+        "url": {
+          "path": [
+            "api",
+            "v1",
+            "platform",
+            "organizations"
+          ],
+          "host": [
+            "{{baseUrl}}"
+          ],
+          "query": [],
+          "variable": []
+        },
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          },
+          {
+            "key": "Accept",
+            "value": "application/json"
+          }
+        ],
+        "method": "POST",
+        "auth": {
+          "type": "bearer",
+          "bearer": [
+            {
+              "key": "token",
+              "value": "{{bearerToken}}"
+            }
+          ]
+        },
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"name\": \"New School Group\",\n  \"type\": \"enterprise\",\n  \"contactInfo\": {\n    \"email\": \"string\",\n    \"phone\": \"string\",\n    \"address\": {\n      \"street\": \"string\",\n      \"city\": \"string\",\n      \"country\": \"string\"\n    }\n  }\n}",
+          "options": {
+            "raw": {
+              "language": "json"
+            }
+          }
+        }
+      },
+      "response": [
+        {
+          "id": "f2ed3f2d-8cfc-4d6e-aab8-48eaa0366f49",
+          "name": "Organization created successfully",
+          "originalRequest": {
+            "url": {
+              "path": [
+                "api",
+                "v1",
+                "platform",
+                "organizations"
+              ],
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "query": [],
+              "variable": []
+            },
+            "header": [
+              {
+                "description": {
+                  "content": "Added as a part of security scheme: bearer",
+                  "type": "text/plain"
+                },
+                "key": "Authorization",
+                "value": "Bearer <token>"
+              },
+              {
+                "key": "Accept",
+                "value": "application/json"
+              }
+            ],
+            "method": "POST",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"New School Group\",\n  \"type\": \"enterprise\",\n  \"contactInfo\": {\n    \"email\": \"string\",\n    \"phone\": \"string\",\n    \"address\": {\n      \"street\": \"string\",\n      \"city\": \"string\",\n      \"country\": \"string\"\n    }\n  }\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "status": "Created",
+          "code": 201,
+          "header": [
+            {
+              "key": "Content-Type",
+              "value": "application/json"
+            }
+          ],
+          "body": "{\n  \"success\": true,\n  \"data\": {\n    \"_id\": \"64f7b1c4e4b0c8f8a1234567\",\n    \"name\": \"ABC School Group\",\n    \"type\": \"enterprise\",\n    \"status\": \"active\",\n    \"contactInfo\": {\n      \"email\": \"contact@abcschool.com\",\n      \"phone\": \"+1234567890\"\n    }\n  }\n}",
+          "cookie": [],
+          "_postman_previewlanguage": "json"
+        }
+      ],
+      "event": [],
+      "protocolProfileBehavior": {
+        "disableBodyPruning": true
+      }
+    },
+    {
+      "id": "63f9d17a-00bf-47b9-ab11-eb63896d6825",
+      "name": "Get Organization",
+      "request": {
+        "name": "Get Organization",
+        "description": {},
+        "url": {
+          "path": [
+            "api",
+            "v1",
+            "platform",
+            "organizations",
+            ":orgId"
+          ],
+          "host": [
+            "{{baseUrl}}"
+          ],
+          "query": [],
+          "variable": [
+            {
+              "disabled": false,
+              "type": "any",
+              "value": "string",
+              "key": "orgId",
+              "description": "(Required) "
+            }
+          ]
+        },
+        "method": "GET",
+        "auth": {
+          "type": "bearer",
+          "bearer": [
+            {
+              "key": "token",
+              "value": "{{bearerToken}}"
+            }
+          ]
+        }
+      },
+      "response": [
+        {
+          "id": "bdd3a4d7-8a91-4fed-914f-78187f19f04c",
+          "name": "Organization details",
+          "originalRequest": {
+            "url": {
+              "path": [
+                "api",
+                "v1",
+                "platform",
+                "organizations",
+                ":orgId"
+              ],
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "query": [],
+              "variable": [
+                {
+                  "disabled": false,
+                  "type": "any",
+                  "value": "string",
+                  "key": "orgId",
+                  "description": "(Required) "
+                }
+              ]
+            },
+            "header": [
+              {
+                "description": {
+                  "content": "Added as a part of security scheme: bearer",
+                  "type": "text/plain"
+                },
+                "key": "Authorization",
+                "value": "Bearer <token>"
+              }
+            ],
+            "method": "GET",
+            "body": {}
+          },
+          "status": "OK",
+          "code": 200,
+          "header": [
+            {
+              "key": "Content-Type",
+              "value": "text/plain"
+            }
+          ],
+          "body": "",
+          "cookie": [],
+          "_postman_previewlanguage": "text"
+        }
+      ],
+      "event": [],
+      "protocolProfileBehavior": {
+        "disableBodyPruning": true
+      }
+    },
+    {
+      "id": "b8bc4403-82d7-480d-be8c-77ddc8cd0ad8",
+      "name": "Update Organization",
+      "request": {
+        "name": "Update Organization",
+        "description": {},
+        "url": {
+          "path": [
+            "api",
+            "v1",
+            "platform",
+            "organizations",
+            ":orgId"
+          ],
+          "host": [
+            "{{baseUrl}}"
+          ],
+          "query": [],
+          "variable": [
+            {
+              "disabled": false,
+              "type": "any",
+              "value": "string",
+              "key": "orgId",
+              "description": "(Required) "
+            }
+          ]
+        },
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "method": "PUT",
+        "auth": {
+          "type": "bearer",
+          "bearer": [
+            {
+              "key": "token",
+              "value": "{{bearerToken}}"
+            }
+          ]
+        },
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"name\": \"string\",\n  \"status\": \"inactive\"\n}",
+          "options": {
+            "raw": {
+              "language": "json"
+            }
+          }
+        }
+      },
+      "response": [
+        {
+          "id": "94fe978e-de03-400c-8c8f-f9820c4dd8e8",
+          "name": "Organization updated",
+          "originalRequest": {
+            "url": {
+              "path": [
+                "api",
+                "v1",
+                "platform",
+                "organizations",
+                ":orgId"
+              ],
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "query": [],
+              "variable": [
+                {
+                  "disabled": false,
+                  "type": "any",
+                  "value": "string",
+                  "key": "orgId",
+                  "description": "(Required) "
+                }
+              ]
+            },
+            "header": [
+              {
+                "description": {
+                  "content": "Added as a part of security scheme: bearer",
+                  "type": "text/plain"
+                },
+                "key": "Authorization",
+                "value": "Bearer <token>"
+              }
+            ],
+            "method": "PUT",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"string\",\n  \"status\": \"inactive\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "status": "OK",
+          "code": 200,
+          "header": [
+            {
+              "key": "Content-Type",
+              "value": "text/plain"
+            }
+          ],
+          "body": "",
+          "cookie": [],
+          "_postman_previewlanguage": "text"
+        }
+      ],
+      "event": [],
+      "protocolProfileBehavior": {
+        "disableBodyPruning": true
+      }
+    },
+    {
+      "id": "fae05f52-d8e9-4473-a441-ad10bbfc952c",
+      "name": "List Subscriptions",
+      "request": {
+        "name": "List Subscriptions",
+        "description": {},
+        "url": {
+          "path": [
+            "api",
+            "v1",
+            "platform",
+            "subscriptions"
+          ],
+          "host": [
+            "{{baseUrl}}"
+          ],
+          "query": [],
+          "variable": []
+        },
+        "method": "GET",
+        "auth": {
+          "type": "bearer",
+          "bearer": [
+            {
+              "key": "token",
+              "value": "{{bearerToken}}"
+            }
+          ]
+        }
+      },
+      "response": [
+        {
+          "id": "091f1c4f-14c4-4d80-b342-79b07034df64",
+          "name": "Subscriptions list",
+          "originalRequest": {
+            "url": {
+              "path": [
+                "api",
+                "v1",
+                "platform",
+                "subscriptions"
+              ],
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "query": [],
+              "variable": []
+            },
+            "header": [
+              {
+                "description": {
+                  "content": "Added as a part of security scheme: bearer",
+                  "type": "text/plain"
+                },
+                "key": "Authorization",
+                "value": "Bearer <token>"
+              }
+            ],
+            "method": "GET",
+            "body": {}
+          },
+          "status": "OK",
+          "code": 200,
+          "header": [
+            {
+              "key": "Content-Type",
+              "value": "text/plain"
+            }
+          ],
+          "body": "",
+          "cookie": [],
+          "_postman_previewlanguage": "text"
+        }
+      ],
+      "event": [],
+      "protocolProfileBehavior": {
+        "disableBodyPruning": true
+      }
+    },
+    {
+      "id": "3b4ac0d0-7050-44db-8f6a-fd6a04d8352a",
+      "name": "Create Subscription",
+      "request": {
+        "name": "Create Subscription",
+        "description": {},
+        "url": {
+          "path": [
+            "api",
+            "v1",
+            "platform",
+            "subscriptions"
+          ],
+          "host": [
+            "{{baseUrl}}"
+          ],
+          "query": [],
+          "variable": []
+        },
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "method": "POST",
+        "auth": {
+          "type": "bearer",
+          "bearer": [
+            {
+              "key": "token",
+              "value": "{{bearerToken}}"
+            }
+          ]
+        },
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"organizationId\": \"string\",\n  \"planId\": \"string\",\n  \"billingCycle\": \"monthly\"\n}",
+          "options": {
+            "raw": {
+              "language": "json"
+            }
+          }
+        }
+      },
+      "response": [
+        {
+          "id": "6689977d-2f6c-4f66-9dff-1fe36e7fabae",
+          "name": "Subscription created",
+          "originalRequest": {
+            "url": {
+              "path": [
+                "api",
+                "v1",
+                "platform",
+                "subscriptions"
+              ],
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "query": [],
+              "variable": []
+            },
+            "header": [
+              {
+                "description": {
+                  "content": "Added as a part of security scheme: bearer",
+                  "type": "text/plain"
+                },
+                "key": "Authorization",
+                "value": "Bearer <token>"
+              }
+            ],
+            "method": "POST",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"organizationId\": \"string\",\n  \"planId\": \"string\",\n  \"billingCycle\": \"monthly\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "status": "Created",
+          "code": 201,
+          "header": [
+            {
+              "key": "Content-Type",
+              "value": "text/plain"
+            }
+          ],
+          "body": "",
+          "cookie": [],
+          "_postman_previewlanguage": "text"
+        }
+      ],
+      "event": [],
+      "protocolProfileBehavior": {
+        "disableBodyPruning": true
+      }
+    }
+  ]
+}

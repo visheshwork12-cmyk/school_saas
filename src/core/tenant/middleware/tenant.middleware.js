@@ -18,17 +18,18 @@ import catchAsync from "#utils/core/catchAsync.js";
  * @returns {Promise<void>}
  */
 const tenantMiddleware = catchAsync(async (req, res, next) => {
-  // 🔹 Extended public endpoints list - FIXED VERSION
+  // 🔹 Extended public endpoints list - COMPLETE VERSION
   const publicEndpoints = [
-    '/',                    // ← Root path (already working)
-    '/health',
-    '/status',
-    '/api-docs',           // ← Swagger UI main path
-    '/api-docs.json',      // ← OpenAPI JSON spec
-    '/docs',               // ← ReDoc documentation
-    '/favicon.ico',        // ← Standard favicon
-    '/favicon.png',        // ← PNG favicon (ADD THIS)
-    '/robots.txt',         // ← SEO robots file
+    '/',                    // Root path
+    '/health',             // Health check
+    '/status',             // Status check  
+    '/api-docs',           // Swagger UI main path
+    '/api-docs.json',      // OpenAPI JSON spec
+    '/docs',               // ReDoc documentation
+    '/postman',            // ✅ ADD: Postman collections
+    '/favicon.ico',        // Standard favicon
+    '/favicon.png',        // PNG favicon
+    '/robots.txt',         // SEO robots file
   ];
 
   // 🔹 Check for exact path matches and path patterns
@@ -43,8 +44,8 @@ const tenantMiddleware = catchAsync(async (req, res, next) => {
       return true;
     }
 
-    // Pattern match for swagger assets and sub-paths
-    if (endpoint === '/api-docs' && req.path.startsWith('/api-docs/')) {
+    // ✅ Pattern match for sub-paths (including /postman/*)
+    if (req.path.startsWith(`${endpoint}/`)) {
       return true;
     }
 
@@ -56,7 +57,7 @@ const tenantMiddleware = catchAsync(async (req, res, next) => {
     req.context.tenantId = baseConfig.multiTenant.defaultTenantId;
     req.context.isPublic = true;
 
-    logger.debug(`Public endpoint accessed: ${req.path}`, {
+    logger.debug(`📖 Public endpoint accessed: ${req.path}`, {
       requestId: req.requestId,
       userAgent: req.get("User-Agent"),
     });

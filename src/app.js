@@ -301,9 +301,9 @@ const configureSwagger = async (app, deploymentInfo) => {
     const fs = await import('fs/promises');
     const path = await import('path');
     const yaml = await import('js-yaml');
-    
+
     let swaggerSpec;
-    
+
     try {
       // Try to load from OpenAPI YAML first (preferred)
       const openApiPath = path.join(process.cwd(), 'docs/api/openapi.yaml');
@@ -320,8 +320,8 @@ const configureSwagger = async (app, deploymentInfo) => {
         // Final fallback to basic spec
         swaggerSpec = {
           openapi: "3.0.0",
-          info: { 
-            title: "School Management API", 
+          info: {
+            title: "School Management API",
             version: "1.0.0",
             description: "School ERP SaaS API Documentation"
           },
@@ -329,7 +329,7 @@ const configureSwagger = async (app, deploymentInfo) => {
             "/health": {
               "get": {
                 "summary": "Health Check",
-                "responses": { "200": { "description": "System is healthy" }}
+                "responses": { "200": { "description": "System is healthy" } }
               }
             }
           }
@@ -351,19 +351,19 @@ const configureSwagger = async (app, deploymentInfo) => {
       try {
         const { collection } = req.params;
         const allowedCollections = ['platform-apis', 'school-apis', 'product-apis'];
-        
+
         if (!allowedCollections.includes(collection)) {
           return res.status(400).json({ error: 'Invalid collection name' });
         }
-        
+
         const filePath = path.join(process.cwd(), 'docs/api/postman', `${collection}.json`);
         const content = await fs.readFile(filePath, 'utf-8');
-        
+
         res.setHeader('Content-Type', 'application/json');
         res.setHeader('Content-Disposition', `attachment; filename="${collection}.json"`);
         res.setHeader('Cache-Control', 'public, max-age=3600');
         res.send(content);
-        
+
         logger.info(`📬 Postman collection downloaded: ${collection}.json`);
       } catch (error) {
         logger.error(`Failed to serve Postman collection: ${collection}`, error);
@@ -375,7 +375,7 @@ const configureSwagger = async (app, deploymentInfo) => {
     const checkPostmanCollections = async () => {
       const collections = ['platform-apis.json', 'school-apis.json', 'product-apis.json'];
       const existingCollections = [];
-      
+
       for (const collection of collections) {
         try {
           const filePath = path.join(process.cwd(), 'docs/api/postman', collection);
@@ -385,7 +385,7 @@ const configureSwagger = async (app, deploymentInfo) => {
           // Collection doesn't exist
         }
       }
-      
+
       return existingCollections;
     };
 
@@ -402,7 +402,7 @@ const configureSwagger = async (app, deploymentInfo) => {
       );
 
       const baseUrl = `${req.protocol}://${req.get('host')}`;
-      
+
       const swaggerHtml = `
 <!DOCTYPE html>
 <html lang="en">
@@ -553,32 +553,32 @@ const configureSwagger = async (app, deploymentInfo) => {
     
     ${existingCollections.length > 0 ? `
     <div style="margin: 15px 0;">
-      ${existingCollections.includes('platform-apis.json') ? 
-        `<a href="${baseUrl}/postman/platform-apis" class="postman-link" target="_blank">
+      ${existingCollections.includes('platform-apis.json') ?
+            `<a href="${baseUrl}/postman/platform-apis" class="postman-link" target="_blank">
           🏢 Platform APIs <span class="status-badge">Ready</span>
-        </a>` : 
-        `<span class="postman-link" style="background: #6c757d; cursor: not-allowed;">
+        </a>` :
+            `<span class="postman-link" style="background: #6c757d; cursor: not-allowed;">
           🏢 Platform APIs <span class="status-badge warning-badge">Missing</span>
         </span>`
-      }
+          }
       
-      ${existingCollections.includes('school-apis.json') ? 
-        `<a href="${baseUrl}/postman/school-apis" class="postman-link" target="_blank">
+      ${existingCollections.includes('school-apis.json') ?
+            `<a href="${baseUrl}/postman/school-apis" class="postman-link" target="_blank">
           🏫 School APIs <span class="status-badge">Ready</span>
-        </a>` : 
-        `<span class="postman-link" style="background: #6c757d; cursor: not-allowed;">
+        </a>` :
+            `<span class="postman-link" style="background: #6c757d; cursor: not-allowed;">
           🏫 School APIs <span class="status-badge warning-badge">Missing</span>
         </span>`
-      }
+          }
       
-      ${existingCollections.includes('product-apis.json') ? 
-        `<a href="${baseUrl}/postman/product-apis" class="postman-link" target="_blank">
+      ${existingCollections.includes('product-apis.json') ?
+            `<a href="${baseUrl}/postman/product-apis" class="postman-link" target="_blank">
           🎓 Product APIs <span class="status-badge">Ready</span>
-        </a>` : 
-        `<span class="postman-link" style="background: #6c757d; cursor: not-allowed;">
+        </a>` :
+            `<span class="postman-link" style="background: #6c757d; cursor: not-allowed;">
           🎓 Product APIs <span class="status-badge warning-badge">Missing</span>
         </span>`
-      }
+          }
     </div>
     ` : `
     <div style="background: #f8d7da; border: 1px solid #f5c6cb; border-radius: 4px; padding: 15px; margin: 15px 0;">
@@ -694,10 +694,10 @@ const configureSwagger = async (app, deploymentInfo) => {
     }
 
     logger.info(`📚 Swagger UI configured with DOCS + Postman integration (${existingCollections.length}/3 collections available)`);
-    
+
   } catch (error) {
     logger.error('Failed to configure Swagger with docs + postman integration:', error);
-    
+
     // Fallback minimal configuration
     app.get("/api-docs.json", (req, res) => {
       res.json({
@@ -706,18 +706,14 @@ const configureSwagger = async (app, deploymentInfo) => {
         paths: {}
       });
     });
-    
+
     app.get('/api-docs', (req, res) => {
       res.send('<h1>API Documentation</h1><p>Error loading Swagger UI. Please check logs.</p>');
     });
-    
+
     logger.info('📚 Fallback Swagger configuration loaded');
   }
 };
-
-
-
-
 
 
 /**
@@ -732,6 +728,8 @@ const configureTenantAndLogging = (app, deploymentInfo) => {
       "/health",
       "/status",
       "/favicon.ico",
+      "/postman",          // ✅ ADD: Allow postman collection downloads
+      "/robots.txt"        // ✅ ADD: SEO robots file
     ];
 
     const shouldSkipTenant = skipTenantPaths.some(
@@ -744,6 +742,13 @@ const configureTenantAndLogging = (app, deploymentInfo) => {
         baseConfig.multiTenant?.defaultTenantId || "default";
       req.context.isPublic = true;
       req.context.deployment = deploymentInfo;
+
+      // ✅ ADD: Log public endpoint access
+      logger.debug(`📖 Public documentation endpoint accessed: ${req.path}`, {
+        requestId: req.requestId,
+        userAgent: req.get("User-Agent"),
+      });
+
       return next();
     }
 

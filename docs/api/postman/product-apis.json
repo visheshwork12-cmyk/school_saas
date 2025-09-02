@@ -1,0 +1,1338 @@
+{
+  "info": {
+    "name": "Product APIs - School ERP",
+    "description": "Product feature APIs",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "auth": {
+    "type": "bearer",
+    "bearer": [
+      {
+        "key": "token",
+        "value": "{{bearerToken}}",
+        "type": "string"
+      }
+    ]
+  },
+  "event": [
+    {
+      "listen": "prerequest",
+      "script": {
+        "type": "text/javascript",
+        "exec": [
+          "// Auto-generate timestamp",
+          "pm.globals.set(\"timestamp\", new Date().toISOString());",
+          "",
+          "// Check if bearer token exists",
+          "if (!pm.collectionVariables.get(\"bearerToken\")) {",
+          "    console.log(\"⚠️ Bearer token not set. Please update the bearerToken variable.\");",
+          "}",
+          "",
+          "// Add request logging",
+          "console.log(\"Making request to:\", pm.request.url.toString());"
+        ]
+      }
+    },
+    {
+      "listen": "test",
+      "script": {
+        "type": "text/javascript",
+        "exec": [
+          "// Basic response validation",
+          "pm.test(\"Status code is success\", function () {",
+          "    pm.expect(pm.response.code).to.be.oneOf([200, 201, 202, 204]);",
+          "});",
+          "",
+          "// Response time check",
+          "pm.test(\"Response time is less than 3000ms\", function () {",
+          "    pm.expect(pm.response.responseTime).to.be.below(3000);",
+          "});"
+        ]
+      }
+    }
+  ],
+  "variable": [
+    {
+      "key": "baseUrl",
+      "value": "https://school-saas-ten.vercel.app",
+      "type": "string"
+    },
+    {
+      "key": "localUrl",
+      "value": "http://localhost:3000",
+      "type": "string"
+    },
+    {
+      "key": "bearerToken",
+      "value": "your-jwt-token-here",
+      "type": "string"
+    },
+    {
+      "key": "tenantId",
+      "value": "school_demo_123",
+      "type": "string"
+    },
+    {
+      "key": "adminEmail",
+      "value": "admin@demo.com",
+      "type": "string"
+    }
+  ],
+  "item": [
+    {
+      "id": "566c5a6d-0720-4e56-aa5d-7687876ee4e0",
+      "name": "List Exams",
+      "request": {
+        "name": "List Exams",
+        "description": {},
+        "url": {
+          "path": [
+            "api",
+            "v1",
+            "schools",
+            ":tenantId",
+            "products",
+            "academic",
+            "exams"
+          ],
+          "host": [
+            "{{baseUrl}}"
+          ],
+          "query": [
+            {
+              "disabled": false,
+              "key": "academicYear",
+              "value": "string"
+            },
+            {
+              "disabled": false,
+              "key": "status",
+              "value": "scheduled"
+            }
+          ],
+          "variable": [
+            {
+              "disabled": false,
+              "type": "any",
+              "value": "string",
+              "key": "tenantId",
+              "description": "(Required) "
+            }
+          ]
+        },
+        "method": "GET",
+        "auth": {
+          "type": "bearer",
+          "bearer": [
+            {
+              "key": "token",
+              "value": "{{bearerToken}}"
+            }
+          ]
+        },
+        "header": [
+          {
+            "key": "X-Tenant-ID",
+            "value": "{{tenantId}}",
+            "type": "text",
+            "description": "Tenant identifier for multi-tenancy"
+          }
+        ]
+      },
+      "response": [
+        {
+          "id": "cb3825c5-5364-4c64-b86c-ead0cbdb60c3",
+          "name": "Exams list",
+          "originalRequest": {
+            "url": {
+              "path": [
+                "api",
+                "v1",
+                "schools",
+                ":tenantId",
+                "products",
+                "academic",
+                "exams"
+              ],
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "query": [
+                {
+                  "key": "academicYear",
+                  "value": "string"
+                },
+                {
+                  "key": "status",
+                  "value": "scheduled"
+                }
+              ],
+              "variable": [
+                {
+                  "disabled": false,
+                  "type": "any",
+                  "value": "string",
+                  "key": "tenantId",
+                  "description": "(Required) "
+                }
+              ]
+            },
+            "header": [
+              {
+                "description": {
+                  "content": "Added as a part of security scheme: bearer",
+                  "type": "text/plain"
+                },
+                "key": "Authorization",
+                "value": "Bearer <token>"
+              }
+            ],
+            "method": "GET",
+            "body": {}
+          },
+          "status": "OK",
+          "code": 200,
+          "header": [
+            {
+              "key": "Content-Type",
+              "value": "text/plain"
+            }
+          ],
+          "body": "",
+          "cookie": [],
+          "_postman_previewlanguage": "text"
+        }
+      ],
+      "event": [],
+      "protocolProfileBehavior": {
+        "disableBodyPruning": true
+      }
+    },
+    {
+      "id": "f5f8b37f-e632-4f7a-be40-09e7ea5eb7fb",
+      "name": "Create Exam",
+      "request": {
+        "name": "Create Exam",
+        "description": {},
+        "url": {
+          "path": [
+            "api",
+            "v1",
+            "schools",
+            ":tenantId",
+            "products",
+            "academic",
+            "exams"
+          ],
+          "host": [
+            "{{baseUrl}}"
+          ],
+          "query": [],
+          "variable": [
+            {
+              "disabled": false,
+              "type": "any",
+              "value": "string",
+              "key": "tenantId",
+              "description": "(Required) "
+            }
+          ]
+        },
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          },
+          {
+            "key": "X-Tenant-ID",
+            "value": "{{tenantId}}",
+            "type": "text",
+            "description": "Tenant identifier for multi-tenancy"
+          }
+        ],
+        "method": "POST",
+        "auth": {
+          "type": "bearer",
+          "bearer": [
+            {
+              "key": "token",
+              "value": "{{bearerToken}}"
+            }
+          ]
+        },
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"name\": \"Mid Term Examination\",\n  \"type\": \"surprise\",\n  \"schedule\": {\n    \"startDate\": \"1954-07-16\",\n    \"endDate\": \"2005-05-02\"\n  },\n  \"classes\": [\n    \"string\",\n    \"string\"\n  ]\n}",
+          "options": {
+            "raw": {
+              "language": "json"
+            }
+          }
+        }
+      },
+      "response": [
+        {
+          "id": "4e4416b4-b283-43d5-9bf9-0f2f514d84aa",
+          "name": "Exam created",
+          "originalRequest": {
+            "url": {
+              "path": [
+                "api",
+                "v1",
+                "schools",
+                ":tenantId",
+                "products",
+                "academic",
+                "exams"
+              ],
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "query": [],
+              "variable": [
+                {
+                  "disabled": false,
+                  "type": "any",
+                  "value": "string",
+                  "key": "tenantId",
+                  "description": "(Required) "
+                }
+              ]
+            },
+            "header": [
+              {
+                "description": {
+                  "content": "Added as a part of security scheme: bearer",
+                  "type": "text/plain"
+                },
+                "key": "Authorization",
+                "value": "Bearer <token>"
+              }
+            ],
+            "method": "POST",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"Mid Term Examination\",\n  \"type\": \"mid_term\",\n  \"schedule\": {\n    \"startDate\": \"2001-11-13\",\n    \"endDate\": \"1992-09-03\"\n  },\n  \"classes\": [\n    \"string\",\n    \"string\"\n  ]\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "status": "Created",
+          "code": 201,
+          "header": [
+            {
+              "key": "Content-Type",
+              "value": "text/plain"
+            }
+          ],
+          "body": "",
+          "cookie": [],
+          "_postman_previewlanguage": "text"
+        }
+      ],
+      "event": [],
+      "protocolProfileBehavior": {
+        "disableBodyPruning": true
+      }
+    },
+    {
+      "id": "e5d6028b-9497-4d21-a60a-dfe0b120e0de",
+      "name": "Get Attendance",
+      "request": {
+        "name": "Get Attendance",
+        "description": {},
+        "url": {
+          "path": [
+            "api",
+            "v1",
+            "schools",
+            ":tenantId",
+            "products",
+            "academic",
+            "attendance"
+          ],
+          "host": [
+            "{{baseUrl}}"
+          ],
+          "query": [
+            {
+              "disabled": false,
+              "key": "date",
+              "value": "1961-02-03"
+            },
+            {
+              "disabled": false,
+              "key": "classId",
+              "value": "string"
+            }
+          ],
+          "variable": [
+            {
+              "disabled": false,
+              "type": "any",
+              "value": "string",
+              "key": "tenantId",
+              "description": "(Required) "
+            }
+          ]
+        },
+        "method": "GET",
+        "auth": {
+          "type": "bearer",
+          "bearer": [
+            {
+              "key": "token",
+              "value": "{{bearerToken}}"
+            }
+          ]
+        },
+        "header": [
+          {
+            "key": "X-Tenant-ID",
+            "value": "{{tenantId}}",
+            "type": "text",
+            "description": "Tenant identifier for multi-tenancy"
+          }
+        ]
+      },
+      "response": [
+        {
+          "id": "3b39e621-9f30-4d11-97dc-ba4a54fe056e",
+          "name": "Attendance records",
+          "originalRequest": {
+            "url": {
+              "path": [
+                "api",
+                "v1",
+                "schools",
+                ":tenantId",
+                "products",
+                "academic",
+                "attendance"
+              ],
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "query": [
+                {
+                  "key": "date",
+                  "value": "1961-02-03"
+                },
+                {
+                  "key": "classId",
+                  "value": "string"
+                }
+              ],
+              "variable": [
+                {
+                  "disabled": false,
+                  "type": "any",
+                  "value": "string",
+                  "key": "tenantId",
+                  "description": "(Required) "
+                }
+              ]
+            },
+            "header": [
+              {
+                "description": {
+                  "content": "Added as a part of security scheme: bearer",
+                  "type": "text/plain"
+                },
+                "key": "Authorization",
+                "value": "Bearer <token>"
+              }
+            ],
+            "method": "GET",
+            "body": {}
+          },
+          "status": "OK",
+          "code": 200,
+          "header": [
+            {
+              "key": "Content-Type",
+              "value": "text/plain"
+            }
+          ],
+          "body": "",
+          "cookie": [],
+          "_postman_previewlanguage": "text"
+        }
+      ],
+      "event": [],
+      "protocolProfileBehavior": {
+        "disableBodyPruning": true
+      }
+    },
+    {
+      "id": "33c741b2-32e9-4d8f-8378-27b010ac3107",
+      "name": "Mark Attendance",
+      "request": {
+        "name": "Mark Attendance",
+        "description": {},
+        "url": {
+          "path": [
+            "api",
+            "v1",
+            "schools",
+            ":tenantId",
+            "products",
+            "academic",
+            "attendance"
+          ],
+          "host": [
+            "{{baseUrl}}"
+          ],
+          "query": [],
+          "variable": [
+            {
+              "disabled": false,
+              "type": "any",
+              "value": "string",
+              "key": "tenantId",
+              "description": "(Required) "
+            }
+          ]
+        },
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          },
+          {
+            "key": "X-Tenant-ID",
+            "value": "{{tenantId}}",
+            "type": "text",
+            "description": "Tenant identifier for multi-tenancy"
+          }
+        ],
+        "method": "POST",
+        "auth": {
+          "type": "bearer",
+          "bearer": [
+            {
+              "key": "token",
+              "value": "{{bearerToken}}"
+            }
+          ]
+        },
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"date\": \"2014-12-01\",\n  \"classId\": \"string\",\n  \"records\": [\n    {\n      \"studentId\": \"string\",\n      \"status\": \"present\"\n    },\n    {\n      \"studentId\": \"string\",\n      \"status\": \"absent\"\n    }\n  ]\n}",
+          "options": {
+            "raw": {
+              "language": "json"
+            }
+          }
+        }
+      },
+      "response": [
+        {
+          "id": "ee621a48-f46a-4734-ab0c-28d7b0a97178",
+          "name": "Attendance marked",
+          "originalRequest": {
+            "url": {
+              "path": [
+                "api",
+                "v1",
+                "schools",
+                ":tenantId",
+                "products",
+                "academic",
+                "attendance"
+              ],
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "query": [],
+              "variable": [
+                {
+                  "disabled": false,
+                  "type": "any",
+                  "value": "string",
+                  "key": "tenantId",
+                  "description": "(Required) "
+                }
+              ]
+            },
+            "header": [
+              {
+                "description": {
+                  "content": "Added as a part of security scheme: bearer",
+                  "type": "text/plain"
+                },
+                "key": "Authorization",
+                "value": "Bearer <token>"
+              }
+            ],
+            "method": "POST",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"date\": \"1968-06-21\",\n  \"classId\": \"string\",\n  \"records\": [\n    {\n      \"studentId\": \"string\",\n      \"status\": \"late\"\n    },\n    {\n      \"studentId\": \"string\",\n      \"status\": \"absent\"\n    }\n  ]\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "status": "Created",
+          "code": 201,
+          "header": [
+            {
+              "key": "Content-Type",
+              "value": "text/plain"
+            }
+          ],
+          "body": "",
+          "cookie": [],
+          "_postman_previewlanguage": "text"
+        }
+      ],
+      "event": [],
+      "protocolProfileBehavior": {
+        "disableBodyPruning": true
+      }
+    },
+    {
+      "id": "764c3eae-eba1-49be-803d-a41c3e609120",
+      "name": "List Fee Structures",
+      "request": {
+        "name": "List Fee Structures",
+        "description": {},
+        "url": {
+          "path": [
+            "api",
+            "v1",
+            "schools",
+            ":tenantId",
+            "products",
+            "finance",
+            "fees"
+          ],
+          "host": [
+            "{{baseUrl}}"
+          ],
+          "query": [],
+          "variable": [
+            {
+              "disabled": false,
+              "type": "any",
+              "value": "string",
+              "key": "tenantId",
+              "description": "(Required) "
+            }
+          ]
+        },
+        "method": "GET",
+        "auth": {
+          "type": "bearer",
+          "bearer": [
+            {
+              "key": "token",
+              "value": "{{bearerToken}}"
+            }
+          ]
+        },
+        "header": [
+          {
+            "key": "X-Tenant-ID",
+            "value": "{{tenantId}}",
+            "type": "text",
+            "description": "Tenant identifier for multi-tenancy"
+          }
+        ]
+      },
+      "response": [
+        {
+          "id": "7cba8bb7-814d-4016-a4cb-723db88b8f6c",
+          "name": "Fee structures list",
+          "originalRequest": {
+            "url": {
+              "path": [
+                "api",
+                "v1",
+                "schools",
+                ":tenantId",
+                "products",
+                "finance",
+                "fees"
+              ],
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "query": [],
+              "variable": [
+                {
+                  "disabled": false,
+                  "type": "any",
+                  "value": "string",
+                  "key": "tenantId",
+                  "description": "(Required) "
+                }
+              ]
+            },
+            "header": [
+              {
+                "description": {
+                  "content": "Added as a part of security scheme: bearer",
+                  "type": "text/plain"
+                },
+                "key": "Authorization",
+                "value": "Bearer <token>"
+              }
+            ],
+            "method": "GET",
+            "body": {}
+          },
+          "status": "OK",
+          "code": 200,
+          "header": [
+            {
+              "key": "Content-Type",
+              "value": "text/plain"
+            }
+          ],
+          "body": "",
+          "cookie": [],
+          "_postman_previewlanguage": "text"
+        }
+      ],
+      "event": [],
+      "protocolProfileBehavior": {
+        "disableBodyPruning": true
+      }
+    },
+    {
+      "id": "20c5ff34-1662-4d84-935c-eab67dd0478c",
+      "name": "Create Fee Structure",
+      "request": {
+        "name": "Create Fee Structure",
+        "description": {},
+        "url": {
+          "path": [
+            "api",
+            "v1",
+            "schools",
+            ":tenantId",
+            "products",
+            "finance",
+            "fees"
+          ],
+          "host": [
+            "{{baseUrl}}"
+          ],
+          "query": [],
+          "variable": [
+            {
+              "disabled": false,
+              "type": "any",
+              "value": "string",
+              "key": "tenantId",
+              "description": "(Required) "
+            }
+          ]
+        },
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          },
+          {
+            "key": "X-Tenant-ID",
+            "value": "{{tenantId}}",
+            "type": "text",
+            "description": "Tenant identifier for multi-tenancy"
+          }
+        ],
+        "method": "POST",
+        "auth": {
+          "type": "bearer",
+          "bearer": [
+            {
+              "key": "token",
+              "value": "{{bearerToken}}"
+            }
+          ]
+        },
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"name\": \"string\",\n  \"academicYear\": \"string\",\n  \"components\": [\n    {\n      \"name\": \"string\",\n      \"amount\": 8431.645087226734,\n      \"type\": \"optional\"\n    },\n    {\n      \"name\": \"string\",\n      \"amount\": 6108.979637683978,\n      \"type\": \"mandatory\"\n    }\n  ]\n}",
+          "options": {
+            "raw": {
+              "language": "json"
+            }
+          }
+        }
+      },
+      "response": [
+        {
+          "id": "81d4fcce-00e9-42a3-bbae-96e7dde56926",
+          "name": "Fee structure created",
+          "originalRequest": {
+            "url": {
+              "path": [
+                "api",
+                "v1",
+                "schools",
+                ":tenantId",
+                "products",
+                "finance",
+                "fees"
+              ],
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "query": [],
+              "variable": [
+                {
+                  "disabled": false,
+                  "type": "any",
+                  "value": "string",
+                  "key": "tenantId",
+                  "description": "(Required) "
+                }
+              ]
+            },
+            "header": [
+              {
+                "description": {
+                  "content": "Added as a part of security scheme: bearer",
+                  "type": "text/plain"
+                },
+                "key": "Authorization",
+                "value": "Bearer <token>"
+              }
+            ],
+            "method": "POST",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"string\",\n  \"academicYear\": \"string\",\n  \"components\": [\n    {\n      \"name\": \"string\",\n      \"amount\": 8949.767722976543,\n      \"type\": \"mandatory\"\n    },\n    {\n      \"name\": \"string\",\n      \"amount\": 2049.312025489718,\n      \"type\": \"optional\"\n    }\n  ]\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "status": "Created",
+          "code": 201,
+          "header": [
+            {
+              "key": "Content-Type",
+              "value": "text/plain"
+            }
+          ],
+          "body": "",
+          "cookie": [],
+          "_postman_previewlanguage": "text"
+        }
+      ],
+      "event": [],
+      "protocolProfileBehavior": {
+        "disableBodyPruning": true
+      }
+    },
+    {
+      "id": "9a1513db-dd42-4492-9e2c-3497284d6afc",
+      "name": "List Transactions",
+      "request": {
+        "name": "List Transactions",
+        "description": {},
+        "url": {
+          "path": [
+            "api",
+            "v1",
+            "schools",
+            ":tenantId",
+            "products",
+            "finance",
+            "transactions"
+          ],
+          "host": [
+            "{{baseUrl}}"
+          ],
+          "query": [
+            {
+              "disabled": false,
+              "key": "studentId",
+              "value": "string"
+            },
+            {
+              "disabled": false,
+              "key": "status",
+              "value": "completed"
+            }
+          ],
+          "variable": [
+            {
+              "disabled": false,
+              "type": "any",
+              "value": "string",
+              "key": "tenantId",
+              "description": "(Required) "
+            }
+          ]
+        },
+        "method": "GET",
+        "auth": {
+          "type": "bearer",
+          "bearer": [
+            {
+              "key": "token",
+              "value": "{{bearerToken}}"
+            }
+          ]
+        },
+        "header": [
+          {
+            "key": "X-Tenant-ID",
+            "value": "{{tenantId}}",
+            "type": "text",
+            "description": "Tenant identifier for multi-tenancy"
+          }
+        ]
+      },
+      "response": [
+        {
+          "id": "939cf30b-a21c-4358-a3bc-f94d91b14111",
+          "name": "Transactions list",
+          "originalRequest": {
+            "url": {
+              "path": [
+                "api",
+                "v1",
+                "schools",
+                ":tenantId",
+                "products",
+                "finance",
+                "transactions"
+              ],
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "query": [
+                {
+                  "key": "studentId",
+                  "value": "string"
+                },
+                {
+                  "key": "status",
+                  "value": "completed"
+                }
+              ],
+              "variable": [
+                {
+                  "disabled": false,
+                  "type": "any",
+                  "value": "string",
+                  "key": "tenantId",
+                  "description": "(Required) "
+                }
+              ]
+            },
+            "header": [
+              {
+                "description": {
+                  "content": "Added as a part of security scheme: bearer",
+                  "type": "text/plain"
+                },
+                "key": "Authorization",
+                "value": "Bearer <token>"
+              }
+            ],
+            "method": "GET",
+            "body": {}
+          },
+          "status": "OK",
+          "code": 200,
+          "header": [
+            {
+              "key": "Content-Type",
+              "value": "text/plain"
+            }
+          ],
+          "body": "",
+          "cookie": [],
+          "_postman_previewlanguage": "text"
+        }
+      ],
+      "event": [],
+      "protocolProfileBehavior": {
+        "disableBodyPruning": true
+      }
+    },
+    {
+      "id": "c580aaf8-9e31-4e1d-ac72-7998be09e9f8",
+      "name": "Process Payment",
+      "request": {
+        "name": "Process Payment",
+        "description": {},
+        "url": {
+          "path": [
+            "api",
+            "v1",
+            "schools",
+            ":tenantId",
+            "products",
+            "finance",
+            "transactions"
+          ],
+          "host": [
+            "{{baseUrl}}"
+          ],
+          "query": [],
+          "variable": [
+            {
+              "disabled": false,
+              "type": "any",
+              "value": "string",
+              "key": "tenantId",
+              "description": "(Required) "
+            }
+          ]
+        },
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          },
+          {
+            "key": "X-Tenant-ID",
+            "value": "{{tenantId}}",
+            "type": "text",
+            "description": "Tenant identifier for multi-tenancy"
+          }
+        ],
+        "method": "POST",
+        "auth": {
+          "type": "bearer",
+          "bearer": [
+            {
+              "key": "token",
+              "value": "{{bearerToken}}"
+            }
+          ]
+        },
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"studentId\": \"string\",\n  \"amount\": 8245.900007864266,\n  \"paymentMethod\": \"upi\"\n}",
+          "options": {
+            "raw": {
+              "language": "json"
+            }
+          }
+        }
+      },
+      "response": [
+        {
+          "id": "9da2799d-9f93-4cdb-94e8-00cdfa4d8b0f",
+          "name": "Payment processed",
+          "originalRequest": {
+            "url": {
+              "path": [
+                "api",
+                "v1",
+                "schools",
+                ":tenantId",
+                "products",
+                "finance",
+                "transactions"
+              ],
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "query": [],
+              "variable": [
+                {
+                  "disabled": false,
+                  "type": "any",
+                  "value": "string",
+                  "key": "tenantId",
+                  "description": "(Required) "
+                }
+              ]
+            },
+            "header": [
+              {
+                "description": {
+                  "content": "Added as a part of security scheme: bearer",
+                  "type": "text/plain"
+                },
+                "key": "Authorization",
+                "value": "Bearer <token>"
+              }
+            ],
+            "method": "POST",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"studentId\": \"string\",\n  \"amount\": 4996.645048447139,\n  \"paymentMethod\": \"cash\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "status": "Created",
+          "code": 201,
+          "header": [
+            {
+              "key": "Content-Type",
+              "value": "text/plain"
+            }
+          ],
+          "body": "",
+          "cookie": [],
+          "_postman_previewlanguage": "text"
+        }
+      ],
+      "event": [],
+      "protocolProfileBehavior": {
+        "disableBodyPruning": true
+      }
+    },
+    {
+      "id": "872a22e5-de3c-4b33-b386-bb4e47273b3e",
+      "name": "List Books",
+      "request": {
+        "name": "List Books",
+        "description": {},
+        "url": {
+          "path": [
+            "api",
+            "v1",
+            "schools",
+            ":tenantId",
+            "products",
+            "library",
+            "books"
+          ],
+          "host": [
+            "{{baseUrl}}"
+          ],
+          "query": [],
+          "variable": [
+            {
+              "disabled": false,
+              "type": "any",
+              "value": "string",
+              "key": "tenantId",
+              "description": "(Required) "
+            }
+          ]
+        },
+        "method": "GET",
+        "auth": {
+          "type": "bearer",
+          "bearer": [
+            {
+              "key": "token",
+              "value": "{{bearerToken}}"
+            }
+          ]
+        },
+        "header": [
+          {
+            "key": "X-Tenant-ID",
+            "value": "{{tenantId}}",
+            "type": "text",
+            "description": "Tenant identifier for multi-tenancy"
+          }
+        ]
+      },
+      "response": [
+        {
+          "id": "8d06285f-d608-43a8-91c8-e3212f2a5682",
+          "name": "Books list",
+          "originalRequest": {
+            "url": {
+              "path": [
+                "api",
+                "v1",
+                "schools",
+                ":tenantId",
+                "products",
+                "library",
+                "books"
+              ],
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "query": [],
+              "variable": [
+                {
+                  "disabled": false,
+                  "type": "any",
+                  "value": "string",
+                  "key": "tenantId",
+                  "description": "(Required) "
+                }
+              ]
+            },
+            "header": [
+              {
+                "description": {
+                  "content": "Added as a part of security scheme: bearer",
+                  "type": "text/plain"
+                },
+                "key": "Authorization",
+                "value": "Bearer <token>"
+              }
+            ],
+            "method": "GET",
+            "body": {}
+          },
+          "status": "OK",
+          "code": 200,
+          "header": [
+            {
+              "key": "Content-Type",
+              "value": "text/plain"
+            }
+          ],
+          "body": "",
+          "cookie": [],
+          "_postman_previewlanguage": "text"
+        }
+      ],
+      "event": [],
+      "protocolProfileBehavior": {
+        "disableBodyPruning": true
+      }
+    },
+    {
+      "id": "4b5e4cb5-0529-44d3-8fe7-28fd78c18370",
+      "name": "Add Book",
+      "request": {
+        "name": "Add Book",
+        "description": {},
+        "url": {
+          "path": [
+            "api",
+            "v1",
+            "schools",
+            ":tenantId",
+            "products",
+            "library",
+            "books"
+          ],
+          "host": [
+            "{{baseUrl}}"
+          ],
+          "query": [],
+          "variable": [
+            {
+              "disabled": false,
+              "type": "any",
+              "value": "string",
+              "key": "tenantId",
+              "description": "(Required) "
+            }
+          ]
+        },
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          },
+          {
+            "key": "X-Tenant-ID",
+            "value": "{{tenantId}}",
+            "type": "text",
+            "description": "Tenant identifier for multi-tenancy"
+          }
+        ],
+        "method": "POST",
+        "auth": {
+          "type": "bearer",
+          "bearer": [
+            {
+              "key": "token",
+              "value": "{{bearerToken}}"
+            }
+          ]
+        },
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"title\": \"string\",\n  \"author\": \"string\",\n  \"isbn\": \"string\",\n  \"category\": \"string\"\n}",
+          "options": {
+            "raw": {
+              "language": "json"
+            }
+          }
+        }
+      },
+      "response": [
+        {
+          "id": "04c7b243-e56d-4c5c-aa8c-e6c3fb0a1faa",
+          "name": "Book added",
+          "originalRequest": {
+            "url": {
+              "path": [
+                "api",
+                "v1",
+                "schools",
+                ":tenantId",
+                "products",
+                "library",
+                "books"
+              ],
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "query": [],
+              "variable": [
+                {
+                  "disabled": false,
+                  "type": "any",
+                  "value": "string",
+                  "key": "tenantId",
+                  "description": "(Required) "
+                }
+              ]
+            },
+            "header": [
+              {
+                "description": {
+                  "content": "Added as a part of security scheme: bearer",
+                  "type": "text/plain"
+                },
+                "key": "Authorization",
+                "value": "Bearer <token>"
+              }
+            ],
+            "method": "POST",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"title\": \"string\",\n  \"author\": \"string\",\n  \"isbn\": \"string\",\n  \"category\": \"string\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "status": "Created",
+          "code": 201,
+          "header": [
+            {
+              "key": "Content-Type",
+              "value": "text/plain"
+            }
+          ],
+          "body": "",
+          "cookie": [],
+          "_postman_previewlanguage": "text"
+        }
+      ],
+      "event": [],
+      "protocolProfileBehavior": {
+        "disableBodyPruning": true
+      }
+    }
+  ]
+}
