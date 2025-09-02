@@ -23,7 +23,13 @@ async function generatePostmanCollections() {
       console.log('✅ docs/ directory exists');
     } catch (error) {
       console.log('❌ docs/ directory does not exist, creating...');
-      await fs.mkdir(DOCS_PATH, { recursive: true });
+      try {
+        await fs.mkdir(DOCS_PATH, { recursive: true });
+      } catch (err) {
+        if (err.code !== 'EEXIST') {
+          console.warn('Could not create docs directory:', DOCS_PATH, err);
+        }
+      }
     }
 
     // Check if OpenAPI spec exists
@@ -206,36 +212,36 @@ function processRequestItem(item, collections) {
   // Check if this is a folder (has child items)
   if (item.item && Array.isArray(item.item)) {
     console.log(`📁 Processing folder: ${item.name}`);
-    
+
     // ✅ IMPROVED: Determine folder category based on folder name
     const folderCategory = categorizeFolderByName(item.name);
-    
+
     // Process each request in the folder
     item.item.forEach((subItem, subIndex) => {
       console.log(`  📄 Processing sub-item ${subIndex + 1}: ${subItem.name || 'Unnamed'}`);
-      
+
       if (subItem.request) {
         console.log(`  🔗 Processing request: ${subItem.name}`);
-        
+
         // ✅ Use folder category instead of individual request categorization
         const collectionType = folderCategory;
         console.log(`  📂 Categorized as: ${collectionType} (from folder: ${item.name})`);
-        
+
         if (collections[collectionType]) {
           // Add tenant header for school and product APIs
           if (collectionType !== 'platform') {
             addTenantHeader(subItem);
           }
-          
+
           // Update URLs to use variables
           updateUrlVariables(subItem);
-          
+
           // Add to appropriate collection
           collections[collectionType].item.push(subItem);
         }
       }
     });
-  } 
+  }
   // This is a direct request
   else if (item.request) {
     console.log(`  🔗 Processing request: ${item.name}`);
