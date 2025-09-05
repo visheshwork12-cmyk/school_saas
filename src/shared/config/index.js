@@ -1,8 +1,10 @@
+// src/shared/config/index.js
 import pkg from "lodash";
 const { merge } = pkg;
 import Joi from "joi";
 import { logger } from "#utils/core/logger.js";
 import { AuditService } from "#core/audit/services/audit-log.service.js";
+import { cloudinaryConfig } from "./cloudinary.config.js";
 import baseConfig from "#config/environments/base.config.js";
 import developmentConfig from "#config/environments/development.config.js";
 import productionConfig from "#config/environments/production.config.js";
@@ -36,12 +38,32 @@ import localConfig from "#config/environments/local.config.js";
  */
 
 /**
+ * @typedef {Object} CloudinaryConfig
+ * @property {string} cloud_name - Cloudinary cloud name
+ * @property {string} api_key - Cloudinary API key
+ * @property {string} api_secret - Cloudinary API secret
+ * @property {boolean} secure - Use HTTPS
+ * @property {string} folder - Default upload folder
+ * @property {string} upload_preset - Upload preset
+ */
+
+/**
+ * @typedef {Object} FileUploadConfig
+ * @property {number} maxFileSize - Maximum file size in bytes
+ * @property {number} maxFiles - Maximum number of files
+ * @property {string[]} allowedTypes - Allowed MIME types
+ * @property {Object} categories - File categories configuration
+ */
+
+/**
  * @typedef {Object} Config
  * @property {number} port - Application port
  * @property {string} env - Environment name
  * @property {string} appName - Application name
  * @property {MongoConfig} mongo - MongoDB configuration
  * @property {JwtConfig} jwt - JWT configuration
+ * @property {CloudinaryConfig} cloudinary - Cloudinary configuration
+ * @property {FileUploadConfig} fileUpload - File upload configuration
  * @property {Object} cache - Cache configuration
  * @property {Object} redis - Redis configuration
  * @property {Object} rateLimit - Rate limiting configuration
@@ -118,6 +140,49 @@ const getConfigSchema = () => {
       accessExpiresIn: Joi.string().default("15m"),
       refreshExpiresIn: Joi.string().default("7d"),
     }).required(),
+    // Cloudinary configuration validation
+    cloudinary: Joi.object({
+      cloud_name: Joi.string().required(),
+      api_key: Joi.string().required(),
+      api_secret: Joi.string().required(),
+      secure: Joi.boolean().default(true),
+      folder: Joi.string().default("school-erp"),
+      upload_preset: Joi.string().optional(),
+    }).required(),
+    // File upload configuration validation
+    fileUpload: Joi.object({
+      maxFileSize: Joi.number().min(1024).default(10 * 1024 * 1024), // 10MB
+      maxFiles: Joi.number().min(1).default(5),
+      allowedTypes: Joi.array().items(Joi.string()).default([
+        'image/jpeg',
+        'image/png',
+        'image/gif',
+        'image/webp',
+        'application/pdf',
+        'application/msword',
+        'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+        'application/vnd.ms-excel',
+        'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+      ]),
+      categories: Joi.object({
+        profile_pictures: Joi.object({
+          maxSize: Joi.number().default(5 * 1024 * 1024), // 5MB
+          allowedTypes: Joi.array().items(Joi.string()).default(['image/jpeg', 'image/png', 'image/webp'])
+        }).default(),
+        assignments: Joi.object({
+          maxSize: Joi.number().default(10 * 1024 * 1024), // 10MB
+          allowedTypes: Joi.array().items(Joi.string()).default(['application/pdf', 'image/jpeg', 'image/png'])
+        }).default(),
+        documents: Joi.object({
+          maxSize: Joi.number().default(15 * 1024 * 1024), // 15MB
+          allowedTypes: Joi.array().items(Joi.string()).default([
+            'application/pdf',
+            'application/msword',
+            'application/vnd.openxmlformats-officedocument.wordprocessingml.document'
+          ])
+        }).default(),
+      }).default(),
+    }).default(),
     cache: Joi.object({
       ttl: Joi.number().min(1).default(600),
       checkperiod: Joi.number().min(1).default(60),
@@ -238,6 +303,59 @@ const ensureAuthConfig = (config) => {
 };
 
 /**
+ * Ensures Cloudinary configuration.
+ * @param {Object} config - Configuration object
+ */
+const ensureCloudinaryConfig = (config) => {
+  if (!config.cloudinary) {
+    config.cloudinary = cloudinaryConfig;
+    logger.info('Cloudinary configuration added from cloudinary.config.js');
+  }
+};
+
+/**
+ * Ensures file upload configuration.
+ * @param {Object} config - Configuration object
+ */
+const ensureFileUploadConfig = (config) => {
+  if (!config.fileUpload) {
+    config.fileUpload = {
+      maxFileSize: 10 * 1024 * 1024, // 10MB
+      maxFiles: 5,
+      allowedTypes: [
+        'image/jpeg',
+        'image/png',
+        'image/gif',
+        'image/webp',
+        'application/pdf',
+        'application/msword',
+        'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+        'application/vnd.ms-excel',
+        'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+      ],
+      categories: {
+        profile_pictures: {
+          maxSize: 5 * 1024 * 1024, // 5MB
+          allowedTypes: ['image/jpeg', 'image/png', 'image/webp']
+        },
+        assignments: {
+          maxSize: 10 * 1024 * 1024, // 10MB
+          allowedTypes: ['application/pdf', 'image/jpeg', 'image/png']
+        },
+        documents: {
+          maxSize: 15 * 1024 * 1024, // 15MB
+          allowedTypes: [
+            'application/pdf',
+            'application/msword',
+            'application/vnd.openxmlformats-officedocument.wordprocessingml.document'
+          ]
+        },
+      }
+    };
+  }
+};
+
+/**
  * Loads and validates environment-based configuration.
  * @returns {Config} Validated configuration object
  * @throws {Error} If validation fails or environment is invalid
@@ -247,6 +365,42 @@ const loadConfig = () => {
   try {
     const envConfig = selectEnvConfig(env);
     const config = merge({}, baseConfig, envConfig, {
+      // Add Cloudinary config
+      cloudinary: cloudinaryConfig,
+      // Add file upload config
+      fileUpload: {
+        maxFileSize: 10 * 1024 * 1024, // 10MB
+        maxFiles: 5,
+        allowedTypes: [
+          'image/jpeg',
+          'image/png',
+          'image/gif',
+          'image/webp',
+          'application/pdf',
+          'application/msword',
+          'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+          'application/vnd.ms-excel',
+          'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+        ],
+        categories: {
+          profile_pictures: {
+            maxSize: 5 * 1024 * 1024, // 5MB
+            allowedTypes: ['image/jpeg', 'image/png', 'image/webp']
+          },
+          assignments: {
+            maxSize: 10 * 1024 * 1024, // 10MB
+            allowedTypes: ['application/pdf', 'image/jpeg', 'image/png']
+          },
+          documents: {
+            maxSize: 15 * 1024 * 1024, // 15MB
+            allowedTypes: [
+              'application/pdf',
+              'application/msword',
+              'application/vnd.openxmlformats-officedocument.wordprocessingml.document'
+            ]
+          },
+        }
+      },
       paths: {
         docs: "docs",
       },
@@ -257,12 +411,25 @@ const loadConfig = () => {
 
     ensureJwtCompatibility(validatedConfig);
     ensureAuthConfig(validatedConfig);
+    ensureCloudinaryConfig(validatedConfig);
+    ensureFileUploadConfig(validatedConfig);
 
-    logger.info(`Configuration loaded successfully for environment: ${env}`);
+    logger.info(`Configuration loaded successfully for environment: ${env}`, {
+      cloudinary: {
+        configured: !!validatedConfig.cloudinary.cloud_name,
+        cloud_name: validatedConfig.cloudinary.cloud_name
+      },
+      fileUpload: {
+        maxFileSize: validatedConfig.fileUpload.maxFileSize,
+        maxFiles: validatedConfig.fileUpload.maxFiles
+      }
+    });
+
     AuditService.log("CONFIG_LOAD", {
       action: "config_load",
       status: "success",
       environment: env,
+      cloudinary_configured: !!validatedConfig.cloudinary.cloud_name,
     });
 
     return validatedConfig;
@@ -277,7 +444,7 @@ let configInstance;
 try {
   configInstance = loadConfig();
 } catch (error) {
-  logger.error("Failed to load configuration:", error.message); // Changed to logger
+  logger.error("Failed to load configuration:", error.message);
   process.exit(1);
 }
 

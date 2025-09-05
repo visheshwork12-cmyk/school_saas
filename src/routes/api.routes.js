@@ -1,3 +1,4 @@
+// src/routes/api.routes.js - COMPLETE FIXED VERSION
 import { Router } from "express";
 import { logger } from "#utils/core/logger.js";
 import { tenantMiddleware } from "#core/tenant/middleware/tenant.middleware.js";
@@ -12,10 +13,9 @@ import { AuditService } from "#core/audit/services/audit-log.service.js";
 import HTTP_STATUS from "#constants/http-status.js";
 import baseConfig from "#shared/config/environments/base.config.js";
 
-/**
- * @description Main API routes aggregator
- * @returns {import('express').Router}
- */
+// ✅ CRITICAL FIX: Import file routes
+import filesRoutes from '../api/v1/shared/files/routes/files.routes.js';
+
 const apiRoutes = Router();
 
 // Apply middleware
@@ -25,14 +25,21 @@ apiRoutes.use(responseVersionMiddleware);
 
 // Route logging
 apiRoutes.use(async (req, res, next) => {
-  await AuditService.log("API_ROUTE_ACCESSED", {
-    requestId: req.requestId,
-    path: req.path,
-    tenantId: req.context?.tenantId,
-  });
+  try {
+    await AuditService.log("API_ROUTE_ACCESSED", {
+      requestId: req.requestId,
+      path: req.path,
+      tenantId: req.context?.tenantId,
+    });
+  } catch (error) {
+    // Continue if audit fails
+  }
   logger.debug(`API route accessed: ${req.path}`);
   next();
 });
+
+// ✅ CRITICAL FIX: Mount file routes FIRST
+apiRoutes.use('/files', filesRoutes);
 
 // Route mounting
 apiRoutes.use("/platform", platformRoutes);
@@ -43,10 +50,6 @@ apiRoutes.use("/shared", sharedRoutes);
 
 // API health check
 apiRoutes.get("/health", async (req, res) => {
-  await AuditService.log("HEALTH_CHECK", {
-    requestId: req.requestId,
-    tenantId: req.context?.tenantId,
-  });
   res.status(HTTP_STATUS.OK).json({
     success: true,
     message: "API is healthy",
@@ -55,6 +58,6 @@ apiRoutes.get("/health", async (req, res) => {
   });
 });
 
-logger.info("API routes configured successfully");
+logger.info("✅ API routes configured successfully");
 
 export default apiRoutes;

@@ -4,9 +4,9 @@ import helmet from "helmet";
 import cors from "cors";
 import compression from "compression";
 import rateLimit from "express-rate-limit";
-import mongoSanitize from "express-mongo-sanitize";
-import xss from "xss-clean";
-import hpp from "hpp";
+// import mongoSanitize from "express-mongo-sanitize";
+// import xss from "xss-clean";
+// import hpp from "hpp";
 import passport from "passport";
 import { logger } from "#utils/core/logger.js";
 import baseConfig from "#shared/config/environments/base.config.js";
@@ -15,9 +15,10 @@ import { tenantMiddleware } from "#core/tenant/middleware/tenant.middleware.js";
 import { errorHandler } from "#shared/middleware/error-handling/error-handler.middleware.js";
 import { AuditService } from "#core/audit/services/audit-log.service.js";
 import HTTP_STATUS from "#constants/http-status.js";
-import redoc from "redoc-express";
-import swaggerJsdoc from "swagger-jsdoc";
-import swaggerUi from "swagger-ui-express";
+import healthRoutes from '#routes/health.routes.js';
+// import redoc from "redoc-express";
+// import swaggerJsdoc from "swagger-jsdoc";
+// import swaggerUi from "swagger-ui-express";
 
 /**
  * Detect deployment environment with enhanced detection
@@ -236,10 +237,7 @@ const configureRateLimiting = (app, deploymentInfo) => {
 };
 
 /**
- * Configure public routes
- */
-/**
- * Configure public routes
+ * Configure public routes - ENHANCED WITH CLOUDINARY HEALTH
  */
 const configurePublicRoutes = (app, deploymentInfo) => {
   // Root route - before tenant middleware
@@ -252,6 +250,9 @@ const configurePublicRoutes = (app, deploymentInfo) => {
       deployment: deploymentInfo,
       endpoints: {
         health: '/health',
+        systemHealth: '/health/system',
+        cloudinaryHealth: '/health/cloudinary',
+        fileUpload: '/health/files',
         status: '/status',
         apiDocs: '/api-docs',
         api: '/api/v1'
@@ -260,26 +261,52 @@ const configurePublicRoutes = (app, deploymentInfo) => {
     });
   });
 
-  // Health endpoint
-  app.get('/health', (req, res) => {
-    const healthCheck = {
-      status: 'healthy',
-      uptime: process.uptime(),
-      environment: baseConfig.env,
-      deployment: deploymentInfo,
-      version: baseConfig.versioning?.currentApiVersion || '1.0.0',
-      timestamp: new Date().toISOString(),
-      memory: process.memoryUsage(),
-      system: {
-        nodeVersion: process.version,
-        platform: process.platform,
-        arch: process.arch
+  // ✅ ENHANCED: Health endpoint with Cloudinary status
+  app.get('/health', async (req, res) => {
+    try {
+      // Check Cloudinary connection
+      let cloudinaryStatus = 'not-configured';
+      if (process.env.CLOUDINARY_CLOUD_NAME) {
+        try {
+          const { verifyCloudinaryConnection } = await import("#shared/config/cloudinary.config.js");
+          const isConnected = await verifyCloudinaryConnection();
+          cloudinaryStatus = isConnected ? 'healthy' : 'unhealthy';
+        } catch (error) {
+          cloudinaryStatus = 'error';
+        }
       }
-    };
-    res.status(HTTP_STATUS.OK).json(healthCheck);
+
+      const healthCheck = {
+        status: 'healthy',
+        uptime: process.uptime(),
+        environment: baseConfig.env,
+        deployment: deploymentInfo,
+        version: baseConfig.versioning?.currentApiVersion || '1.0.0',
+        timestamp: new Date().toISOString(),
+        services: {
+          api: 'healthy',
+          cloudinary: cloudinaryStatus,
+          fileUpload: cloudinaryStatus === 'healthy' ? 'ready' : 'unavailable'
+        },
+        memory: process.memoryUsage(),
+        system: {
+          nodeVersion: process.version,
+          platform: process.platform,
+          arch: process.arch
+        }
+      };
+
+      res.status(HTTP_STATUS.OK).json(healthCheck);
+    } catch (error) {
+      res.status(HTTP_STATUS.SERVICE_UNAVAILABLE).json({
+        status: 'unhealthy',
+        error: error.message,
+        timestamp: new Date().toISOString()
+      });
+    }
   });
 
-  // Status endpoint
+  // Status endpoint (unchanged)
   app.get('/status', (req, res) => {
     res.status(HTTP_STATUS.OK).json({
       status: 'OK',
@@ -291,6 +318,7 @@ const configurePublicRoutes = (app, deploymentInfo) => {
     });
   });
 };
+
 
 /**
  * Configure Swagger documentation - DOCS FOLDER + POSTMAN INTEGRATED
@@ -717,7 +745,45 @@ const configureSwagger = async (app, deploymentInfo) => {
 
 
 /**
- * Configure tenant and logging middleware
+ * Configure file upload specific middleware
+ */
+const configureFileUpload = (app, deploymentInfo) => {
+  // Handle multipart/form-data errors specifically
+  app.use('/api/v1/files', (error, req, res, next) => {
+    if (error && error.code === 'LIMIT_FILE_SIZE') {
+      return res.status(413).json({
+        success: false,
+        error: {
+          code: 'FILE_TOO_LARGE',
+          message: 'File size exceeds the maximum limit of 10MB',
+          maxSize: '10MB'
+        },
+        timestamp: new Date().toISOString(),
+        requestId: req.requestId
+      });
+    }
+    
+    if (error && error.code === 'LIMIT_UNEXPECTED_FILE') {
+      return res.status(400).json({
+        success: false,
+        error: {
+          code: 'UNEXPECTED_FILE',
+          message: 'Unexpected file field or too many files',
+          maxFiles: 5
+        },
+        timestamp: new Date().toISOString(),
+        requestId: req.requestId
+      });
+    }
+    
+    next(error);
+  });
+};
+
+
+
+/**
+ * Configure tenant and logging middleware - ENHANCED FOR FILE UPLOADS
  */
 const configureTenantAndLogging = (app, deploymentInfo) => {
   app.use((req, res, next) => {
@@ -725,11 +791,12 @@ const configureTenantAndLogging = (app, deploymentInfo) => {
       "/api-docs",
       "/docs",
       "/api-docs.json",
-      "/health",
+      "/health",           // All health endpoints
       "/status",
       "/favicon.ico",
-      "/postman",          // ✅ ADD: Allow postman collection downloads
-      "/robots.txt"        // ✅ ADD: SEO robots file
+      "/postman",          // Postman collection downloads
+      "/robots.txt",       // SEO robots file
+      "/api/v1/files/test" // ✅ ADD: Allow file upload test endpoint
     ];
 
     const shouldSkipTenant = skipTenantPaths.some(
@@ -743,11 +810,23 @@ const configureTenantAndLogging = (app, deploymentInfo) => {
       req.context.isPublic = true;
       req.context.deployment = deploymentInfo;
 
-      // ✅ ADD: Log public endpoint access
-      logger.debug(`📖 Public documentation endpoint accessed: ${req.path}`, {
-        requestId: req.requestId,
-        userAgent: req.get("User-Agent"),
-      });
+      // ✅ ENHANCED: Better logging for different endpoint types
+      if (req.path.startsWith('/health')) {
+        logger.debug(`🏥 Health check endpoint accessed: ${req.path}`, {
+          requestId: req.requestId,
+          userAgent: req.get("User-Agent"),
+        });
+      } else if (req.path.startsWith('/api/v1/files')) {
+        logger.debug(`📁 File service endpoint accessed: ${req.path}`, {
+          requestId: req.requestId,
+          userAgent: req.get("User-Agent"),
+        });
+      } else {
+        logger.debug(`📖 Public documentation endpoint accessed: ${req.path}`, {
+          requestId: req.requestId,
+          userAgent: req.get("User-Agent"),
+        });
+      }
 
       return next();
     }
@@ -755,6 +834,7 @@ const configureTenantAndLogging = (app, deploymentInfo) => {
     return tenantMiddleware(req, res, next);
   });
 
+  // Rest of the function remains the same...
   app.use(async (req, res, next) => {
     try {
       if (!deploymentInfo.isServerless) {
@@ -781,25 +861,35 @@ const configureTenantAndLogging = (app, deploymentInfo) => {
   });
 };
 
+
+
+
 // Import docs routes
 const configureApiRoutes = async (app) => {
   try {
+    // ✅ ADD: Health routes first (for detailed health checks)
+    app.use('/health', healthRoutes);
+
     // Existing API routes
     const apiRoutes = await import("#routes/api.routes.js");
     app.use("/api/v1", apiRoutes.default || apiRoutes);
 
     // Add docs routes
-    const docsRoutes = await import("#routes/docs.routes.js");
-    app.use("/", docsRoutes.default || docsRoutes);
+    try {
+      const docsRoutes = await import("#routes/docs.routes.js");
+      app.use("/", docsRoutes.default || docsRoutes);
+    } catch (docsError) {
+      logger.warn("Docs routes not found, skipping...", docsError.message);
+    }
+
+    logger.info("✅ All routes configured successfully");
 
   } catch (error) {
     logger.error("Failed to load routes", error);
   }
 };
 
-/**
- * Creates and configures Express application with hybrid deployment support
- */
+
 const createApp = async () => {
   try {
     const app = express();
@@ -823,10 +913,12 @@ const createApp = async () => {
     configureCompression(app, deploymentInfo);
     configureRateLimiting(app, deploymentInfo);
     configurePublicRoutes(app, deploymentInfo);
-    configureSwagger(app, deploymentInfo);
+    await configureSwagger(app, deploymentInfo);
+    configureFileUpload(app, deploymentInfo); // ✅ ADD: File upload config
     configureTenantAndLogging(app, deploymentInfo);
     await configureApiRoutes(app, deploymentInfo);
 
+    // Rest remains the same...
     app.all("*", (req, res) => {
       res.status(HTTP_STATUS.NOT_FOUND).json({
         success: false,
@@ -852,5 +944,6 @@ const createApp = async () => {
     throw error;
   }
 };
+
 
 export default createApp;

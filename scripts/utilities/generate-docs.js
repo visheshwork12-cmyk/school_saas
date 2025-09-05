@@ -1,68 +1,72 @@
 // scripts/utilities/generate-docs.js
-
-const fs = require('fs-extra');
-const path = require('path');
-const { exec } = require('child_process');
-const { promisify } = require('util');
+import fs from "fs-extra";
+import path from "path";
+import { exec } from "child_process";
+import { promisify } from "util";
+import { fileURLToPath } from "url";
 
 const execAsync = promisify(exec);
 
+// __dirname / __filename fix for ESM
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
+
 class DocumentationGenerator {
-  
   async generateAll() {
-    console.log('🚀 Starting documentation generation...');
-    
+    console.log("🚀 Starting documentation generation...");
+
     try {
       // 1. Generate JSDoc
       await this.generateJSDoc();
-      
+
       // 2. Generate API docs
       await this.generateAPIDoc();
-      
+
       // 3. Generate Postman collections
       await this.generatePostmanCollections();
-      
+
       // 4. Generate README
       await this.generateREADME();
-      
+
       // 5. Generate changelog
       await this.updateChangelog();
-      
-      console.log('✅ Documentation generation completed!');
-      
+
+      console.log("✅ Documentation generation completed!");
     } catch (error) {
-      console.error('❌ Documentation generation failed:', error);
+      console.error("❌ Documentation generation failed:", error);
       process.exit(1);
     }
   }
 
   async generateJSDoc() {
-    console.log('📖 Generating JSDoc documentation...');
-    await execAsync('jsdoc -c jsdoc.conf.json');
-    console.log('✅ JSDoc generated successfully');
+    console.log("📖 Generating JSDoc documentation...");
+    await execAsync("jsdoc -c jsdoc.conf.json");
+    console.log("✅ JSDoc generated successfully");
   }
 
   async generateAPIDoc() {
-    console.log('🔗 Generating API documentation...');
-    
+    console.log("🔗 Generating API documentation...");
+
     // Generate HTML version
-    await execAsync('redoc-cli build docs/api/openapi.yaml --output docs/api/html/index.html');
-    
+    await execAsync(
+      "redoc-cli build docs/api/openapi.yaml --output docs/api/html/index.html"
+    );
+
     // Copy assets
-    await fs.copy('./docs/assets/', './docs/api/html/assets/');
-    
-    console.log('✅ API documentation generated');
+    await fs.copy("./docs/assets/", "./docs/api/html/assets/");
+
+    console.log("✅ API documentation generated");
   }
 
   async generatePostmanCollections() {
-    console.log('📮 Generating Postman collections...');
-    await execAsync('node scripts/utilities/generate-postman.js');
-    console.log('✅ Postman collections generated');
+    console.log("📮 Generating Postman collections...");
+    await execAsync("node scripts/utilities/generate-postman.js");
+    console.log("✅ Postman collections generated");
   }
 
   async generateREADME() {
-    console.log('📝 Updating README...');
-    
+    console.log("📝 Updating README...");
+
     const readmeTemplate = `
 # School Management System
 
@@ -97,15 +101,15 @@ npm run dev
 - [Architecture](./docs/architecture/)
 `;
 
-    await fs.writeFile('./README.md', readmeTemplate);
-    console.log('✅ README updated');
+    await fs.writeFile("./README.md", readmeTemplate);
+    console.log("✅ README updated");
   }
 
   async updateChangelog() {
-    console.log('📋 Updating changelog...');
-    
+    console.log("📋 Updating changelog...");
+
     const changelogEntry = `
-## [${new Date().toISOString().split('T')[0]}] - Documentation Update
+## [${new Date().toISOString().split("T")[0]}] - Documentation Update
 
 ### Added
 - Complete API documentation with Swagger/OpenAPI
@@ -120,18 +124,18 @@ npm run dev
 
 `;
 
-    const existingChangelog = await fs.readFile('./CHANGELOG.md', 'utf8');
+    const existingChangelog = await fs.readFile("./CHANGELOG.md", "utf8");
     const newChangelog = changelogEntry + existingChangelog;
-    
-    await fs.writeFile('./CHANGELOG.md', newChangelog);
-    console.log('✅ Changelog updated');
+
+    await fs.writeFile("./CHANGELOG.md", newChangelog);
+    console.log("✅ Changelog updated");
   }
 }
 
 // Run if called directly
-if (require.main === module) {
+if (import.meta.url === `file://${process.argv[1]}`) {
   const generator = new DocumentationGenerator();
   generator.generateAll();
 }
 
-module.exports = DocumentationGenerator;
+export default DocumentationGenerator;

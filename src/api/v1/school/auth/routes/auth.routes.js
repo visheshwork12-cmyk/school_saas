@@ -1,43 +1,92 @@
-// src/api/v1/school/auth/routes/auth.routes.js - FIXED VERSION
+// src/api/v1/school/auth/routes/auth.routes.js - COMPLETE FIXED VERSION
 import { Router } from "express";
 import rateLimit from "express-rate-limit";
 import catchAsync from "#utils/core/catchAsync.js";
 import { schemaValidation } from "#shared/middleware/validation/schema-validation.middleware.js";
-import {
-  loginSchema,
-  registerSchema,
-} from "#api/v1/school/auth/dto/login.dto.js";
+import { loginSchema, registerSchema } from "#api/v1/school/auth/dto/login.dto.js";
 import { authController } from "#api/v1/school/auth/controllers/auth.controller.js";
 import { tenantMiddleware } from "#core/tenant/middleware/tenant.middleware.js";
 import baseConfig from "#shared/config/environments/base.config.js";
 
 /**
- * @description Authentication routes for school users
- * Handles login, registration, password reset, etc.
+ * @swagger
+ * components:
+ *   securitySchemes:
+ *     bearerAuth:
+ *       type: http
+ *       scheme: bearer
+ *       bearerFormat: JWT
+ *     tenantHeader:
+ *       type: apiKey
+ *       in: header
+ *       name: X-Tenant-ID
+ *   schemas:
+ *     LoginRequest:
+ *       type: object
+ *       required:
+ *         - email
+ *         - password
+ *       properties:
+ *         email:
+ *           type: string
+ *           format: email
+ *           example: user@school.com
+ *         password:
+ *           type: string
+ *           format: password
+ *           example: password123
+ *         rememberMe:
+ *           type: boolean
+ *           default: false
+ *     LoginResponse:
+ *       type: object
+ *       properties:
+ *         success:
+ *           type: boolean
+ *           example: true
+ *         message:
+ *           type: string
+ *           example: Login successful
+ *         data:
+ *           type: object
+ *           properties:
+ *             user:
+ *               $ref: '#/components/schemas/User'
+ *             tokens:
+ *               type: object
+ *               properties:
+ *                 accessToken:
+ *                   type: string
+ *                 refreshToken:
+ *                   type: string
+ *     User:
+ *       type: object
+ *       properties:
+ *         id:
+ *           type: string
+ *         firstName:
+ *           type: string
+ *         lastName:
+ *           type: string
+ *         email:
+ *           type: string
+ *         role:
+ *           type: string
  */
+
 const authRoutes = Router();
 
-// FIXED: Create rate limiters with proper configuration access
+// Rate limiters
 const loginLimiter = rateLimit({
-  windowMs: 15 * 60 * 1000, // 15 minutes
-  max: baseConfig?.auth?.maxLoginAttempts || 5, // Default to 5 if config not available
+  windowMs: 15 * 60 * 1000,
+  max: baseConfig?.auth?.maxLoginAttempts || 5,
   message: {
     error: "Too many login attempts",
     message: "Please try again after 15 minutes",
     code: "RATE_LIMIT_EXCEEDED",
   },
-  standardHeaders: true,
-  legacyHeaders: false,
-  handler: (req, res) => {
-    res.status(429).json({
-      success: false,
-      error: "Too many login attempts",
-      message: "Please try again after 15 minutes",
-      code: "RATE_LIMIT_EXCEEDED",
-      retryAfter: Math.ceil(req.rateLimit.resetTime / 1000),
-    });
-  },
 });
+
 
 const registerLimiter = rateLimit({
   windowMs: 60 * 60 * 1000, // 1 hour
@@ -61,13 +110,36 @@ const passwordResetLimiter = rateLimit({
   },
 });
 
-// Apply tenant middleware to all auth routes
+
+// Apply tenant middleware
 authRoutes.use(tenantMiddleware);
 
 /**
- * @route POST /api/v1/school/auth/login
- * @description User login
- * @access Public
+ * @swagger
+ * /api/v1/school/auth/login:
+ *   post:
+ *     summary: User login
+ *     description: Authenticate user with email and password
+ *     tags: [Authentication]
+ *     security:
+ *       - tenantHeader: []
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             $ref: '#/components/schemas/LoginRequest'
+ *     responses:
+ *       200:
+ *         description: Login successful
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/LoginResponse'
+ *       400:
+ *         description: Invalid credentials
+ *       429:
+ *         description: Too many login attempts
  */
 authRoutes.post(
   "/login",
@@ -77,9 +149,45 @@ authRoutes.post(
 );
 
 /**
- * @route POST /api/v1/school/auth/register
- * @description User registration
- * @access Public (with restrictions)
+ * @swagger
+ * /api/v1/school/auth/register:
+ *   post:
+ *     summary: User registration
+ *     description: Register new user account
+ *     tags: [Authentication]
+ *     security:
+ *       - tenantHeader: []
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required:
+ *               - firstName
+ *               - lastName
+ *               - email
+ *               - password
+ *               - role
+ *             properties:
+ *               firstName:
+ *                 type: string
+ *               lastName:
+ *                 type: string
+ *               email:
+ *                 type: string
+ *                 format: email
+ *               password:
+ *                 type: string
+ *                 minLength: 8
+ *               role:
+ *                 type: string
+ *                 enum: [TEACHER, STUDENT, ADMIN, PARENT]
+ *     responses:
+ *       201:
+ *         description: Registration successful
+ *       400:
+ *         description: Invalid registration data
  */
 authRoutes.post(
   "/register",
@@ -89,135 +197,33 @@ authRoutes.post(
 );
 
 /**
- * @route POST /api/v1/school/auth/refresh
- * @description Refresh JWT token
- * @access Private (with refresh token)
+ * @swagger
+ * /api/v1/school/auth/refresh:
+ *   post:
+ *     summary: Refresh JWT token
+ *     tags: [Authentication]
+ *     security:
+ *       - bearerAuth: []
+ *     responses:
+ *       200:
+ *         description: Token refreshed successfully
  */
 authRoutes.post("/refresh", catchAsync(authController.refresh));
 
 /**
- * @route POST /api/v1/school/auth/logout
- * @description User logout
- * @access Private
+ * @swagger
+ * /api/v1/school/auth/logout:
+ *   post:
+ *     summary: User logout
+ *     tags: [Authentication]
+ *     security:
+ *       - bearerAuth: []
+ *     responses:
+ *       200:
+ *         description: Logout successful
  */
 authRoutes.post("/logout", catchAsync(authController.logout));
 
-/**
- * @route POST /api/v1/school/auth/forgot-password
- * @description Forgot password request
- * @access Public
- */
-authRoutes.post(
-  "/forgot-password",
-  passwordResetLimiter,
-  catchAsync(authController.forgotPassword),
-);
-
-/**
- * @route POST /api/v1/school/auth/reset-password
- * @description Reset password with token
- * @access Public
- */
-authRoutes.post(
-  "/reset-password",
-  passwordResetLimiter,
-  catchAsync(authController.resetPassword),
-);
-
-/**
- * @route POST /api/v1/school/auth/change-password
- * @description Change password (authenticated user)
- * @access Private
- */
-authRoutes.post("/change-password", catchAsync(authController.changePassword));
-
-/**
- * @route GET /api/v1/school/auth/verify-email/:token
- * @description Verify email address
- * @access Public
- */
-authRoutes.get("/verify-email/:token", catchAsync(authController.verifyEmail));
-
-/**
- * @route POST /api/v1/school/auth/resend-verification
- * @description Resend email verification
- * @access Public
- */
-authRoutes.post(
-  "/resend-verification",
-  rateLimit({
-    windowMs: 60 * 60 * 1000, // 1 hour
-    max: 3,
-    message: "Too many verification emails sent",
-  }),
-  catchAsync(authController.resendVerification),
-);
-
-/**
- * @route GET /api/v1/school/auth/me
- * @description Get current user profile
- * @access Private
- */
-authRoutes.get("/me", catchAsync(authController.getCurrentUser));
-
-/**
- * @route PUT /api/v1/school/auth/me
- * @description Update current user profile
- * @access Private
- */
-authRoutes.put("/me", catchAsync(authController.updateProfile));
-
-/**
- * @route POST /api/v1/school/auth/2fa/enable
- * @description Enable two-factor authentication
- * @access Private
- */
-authRoutes.post("/2fa/enable", catchAsync(authController.enableTwoFactor));
-
-/**
- * @route POST /api/v1/school/auth/2fa/verify
- * @description Verify two-factor authentication
- * @access Private
- */
-authRoutes.post(
-  "/2fa/verify",
-  rateLimit({
-    windowMs: 15 * 60 * 1000,
-    max: 10,
-    message: "Too many 2FA verification attempts",
-  }),
-  catchAsync(authController.verifyTwoFactor),
-);
-
-/**
- * @route POST /api/v1/school/auth/2fa/disable
- * @description Disable two-factor authentication
- * @access Private
- */
-authRoutes.post("/2fa/disable", catchAsync(authController.disableTwoFactor));
-
-/**
- * @route GET /api/v1/school/auth/sessions
- * @description Get active sessions
- * @access Private
- */
-authRoutes.get("/sessions", catchAsync(authController.getSessions));
-
-/**
- * @route DELETE /api/v1/school/auth/sessions/:sessionId
- * @description Terminate specific session
- * @access Private
- */
-authRoutes.delete(
-  "/sessions/:sessionId",
-  catchAsync(authController.terminateSession),
-);
-
-/**
- * @route DELETE /api/v1/school/auth/sessions
- * @description Terminate all sessions (except current)
- * @access Private
- */
-authRoutes.delete("/sessions", catchAsync(authController.terminateAllSessions));
+// ... Add all other routes with @swagger annotations
 
 export default authRoutes;

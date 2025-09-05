@@ -1,4 +1,4 @@
-// docs/api/swagger-config.js
+// docs/api/swagger-config.js - COMPLETE FIXED VERSION
 import swaggerJsdoc from 'swagger-jsdoc';
 import path from 'path';
 import { fileURLToPath } from 'url';
@@ -13,14 +13,6 @@ export const swaggerOptions = {
       title: "School Management System API",
       version: "1.0.0",
       description: "Multi-tenant School Management System API",
-      contact: {
-        name: "Development Team",
-        email: "dev-team@yourschoolsystem.com",
-      },
-      license: {
-        name: "MIT",
-        url: "https://opensource.org/licenses/MIT",
-      },
     },
     servers: [
       {
@@ -47,18 +39,26 @@ export const swaggerOptions = {
       },
     },
   },
+  // ✅ FIXED: Correct file paths
   apis: [
-    "./src/api/v1/**/*.js",
-    "./src/routes/**/*.js",
-    "./docs/api/examples/**/*.md",  // ← Include examples from docs
+    "./src/api/v1/**/*.js",                     // All API v1 files
+    "./src/api/v1/**/**/*.js",                  // Nested API files  
+    "./src/routes/**/*.js",                     // Route files
+    "./src/**/*routes*.js",
+    "./src/api/v1/school/auth/routes/*.js",     // Specific auth routes
+    "./src/api/v1/shared/files/routes/*.js",    // Specific file routes
+    "./docs/api/examples/**/*.md",              // Example docs
   ],
 };
 
 export const generateSwaggerSpec = () => {
   try {
-    return swaggerJsdoc(swaggerOptions);
+    const spec = swaggerJsdoc(swaggerOptions);
+    console.log('✅ Swagger spec generated successfully');
+    console.log('📄 Found paths:', Object.keys(spec.paths || {}));
+    return spec;
   } catch (error) {
-    console.error('Failed to generate Swagger spec:', error);
+    console.error('❌ Failed to generate Swagger spec:', error);
     return {
       openapi: "3.0.0",
       info: { title: "School Management API", version: "1.0.0" },

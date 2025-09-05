@@ -1,11 +1,9 @@
+// src/core/events/emitters/system-event.emitter.js
 import { EventEmitter as NodeEventEmitter } from "events";
 import { logger } from "#utils/core/logger.js";
-import { AuditService } from "#core/audit/services/audit-log.service.js";
-import baseConfig from "#shared/config/environments/base.config.js";
-import { BusinessException } from "#shared/exceptions/business.exception.js";
 
 /**
- * @description Custom event emitter for system events
+ * @description Custom event emitter for system events with proper error handling
  * @extends {NodeEventEmitter}
  */
 class EventEmitter extends NodeEventEmitter {
@@ -15,34 +13,56 @@ class EventEmitter extends NodeEventEmitter {
    */
   constructor(context = {}) {
     super();
+    
+    // ✅ FIX: Set maxListeners properly with fallback
+    this.setMaxListeners(50);
+    
     this.context = {
-      tenantId: context.tenantId || baseConfig.multiTenant.defaultTenantId,
+      tenantId: context.tenantId || 'default-tenant',
       userId: context.userId || null,
       requestId: context.requestId || null,
     };
 
-    // Set max listeners to prevent memory leak warnings
-    this.setMaxListeners(baseConfig.events.maxListeners);
+    // Add error handling for the EventEmitter itself
+    this.on('error', (error) => {
+      logger.error('EventEmitter internal error:', {
+        error: error.message,
+        tenantId: this.context.tenantId,
+        stack: error.stack
+      });
+    });
   }
 
   /**
-   * @description Emits an event with audit logging
+   * @description Safely emits an event with audit logging
    * @param {string} event - Event name
    * @param {Object} payload - Event payload
    * @returns {boolean} Whether the event was emitted successfully
    */
-  async emit(event, payload) {
+  async safeEmit(event, payload) {
     try {
-      // Log event to audit service
-      await AuditService.log(
-        "SYSTEM_EVENT_EMITTED",
-        {
+      // Use dynamic import for AuditService to avoid circular dependency
+      const { AuditService } = await import("#core/audit/services/audit-log.service.js");
+      
+      // Log event to audit service (with error handling)
+      try {
+        await AuditService.log(
+          "SYSTEM_EVENT_EMITTED",
+          {
+            event,
+            payload,
+            tenantId: this.context.tenantId,
+          },
+          this.context,
+        );
+      } catch (auditError) {
+        // Don't fail event emission if audit fails
+        logger.warn('Audit logging failed for event:', {
           event,
-          payload,
-          tenantId: this.context.tenantId,
-        },
-        this.context,
-      );
+          error: auditError.message,
+          tenantId: this.context.tenantId
+        });
+      }
 
       logger.debug(`Emitting event: ${event}`, {
         tenantId: this.context.tenantId,
@@ -64,15 +84,27 @@ class EventEmitter extends NodeEventEmitter {
         error: error.message,
         tenantId: this.context.tenantId,
       });
-      await AuditService.log(
-        "EVENT_EMISSION_FAILED",
-        {
-          event,
-          error: error.message,
-        },
-        this.context,
-      );
-      throw new BusinessException(`Event emission failed: ${event}`);
+      
+      // Don't throw error, just log and continue
+      return false;
+    }
+  }
+
+  /**
+   * @description Override emit to use safeEmit
+   * @param {string} event - Event name
+   * @param {...any} args - Event arguments
+   * @returns {boolean} Whether the event was emitted successfully
+   */
+  emit(event, ...args) {
+    try {
+      return super.emit(event, ...args);
+    } catch (error) {
+      logger.error(`Event emission error: ${event}`, {
+        error: error.message,
+        tenantId: this.context.tenantId
+      });
+      return false;
     }
   }
 
@@ -89,15 +121,8 @@ class EventEmitter extends NodeEventEmitter {
       } catch (error) {
         logger.error(`Event listener error for ${event}: ${error.message}`, {
           tenantId: this.context.tenantId,
+          stack: error.stack
         });
-        await AuditService.log(
-          "EVENT_LISTENER_ERROR",
-          {
-            event,
-            error: error.message,
-          },
-          this.context,
-        );
       }
     };
     return super.on(event, asyncListener);
@@ -118,15 +143,8 @@ class EventEmitter extends NodeEventEmitter {
           `One-time event listener error for ${event}: ${error.message}`,
           {
             tenantId: this.context.tenantId,
+            stack: error.stack
           },
-        );
-        await AuditService.log(
-          "EVENT_LISTENER_ERROR",
-          {
-            event,
-            error: error.message,
-          },
-          this.context,
         );
       }
     };
@@ -134,4 +152,8 @@ class EventEmitter extends NodeEventEmitter {
   }
 }
 
-export { EventEmitter };
+// Export singleton instance for system-wide use
+const systemEventEmitter = new EventEmitter();
+
+export { EventEmitter, systemEventEmitter };
+export default systemEventEmitter;
