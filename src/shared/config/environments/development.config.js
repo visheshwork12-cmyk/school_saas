@@ -199,6 +199,18 @@ const developmentConfig = {
       enabled: false, // Process emails immediately in development
     },
   },
+
+  sentry: {
+    dsn: process.env.SENTRY_DSN,
+    environment: process.env.SENTRY_ENVIRONMENT,
+    release: process.env.SENTRY_RELEASE,
+    tracesSampleRate: parseFloat(process.env.SENTRY_TRACES_SAMPLE_RATE) || 0.1,
+    profilesSampleRate: parseFloat(process.env.SENTRY_PROFILES_SAMPLE_RATE) || 0.1,
+    debug: process.env.SENTRY_DEBUG === 'true',
+    attachStacktrace: process.env.SENTRY_ATTACH_STACKTRACE !== 'false',
+    sendDefaultPII: process.env.SENTRY_SEND_DEFAULT_PII === 'true',
+  },
+
 };
 
 export default developmentConfig;

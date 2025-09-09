@@ -12,6 +12,7 @@ import sharedRoutes from "#routes/shared.routes.js";
 import { AuditService } from "#core/audit/services/audit-log.service.js";
 import HTTP_STATUS from "#constants/http-status.js";
 import baseConfig from "#shared/config/environments/base.config.js";
+import testSentryRoutes from './test-sentry.routes.js';
 
 // ✅ CRITICAL FIX: Import file routes
 import filesRoutes from '../api/v1/shared/files/routes/files.routes.js';
@@ -44,6 +45,7 @@ apiRoutes.use('/files', filesRoutes);
 // Route mounting
 apiRoutes.use("/platform", platformRoutes);
 apiRoutes.use('/', apiDocsRoutes);
+apiRoutes.use('/test', testSentryRoutes);
 apiRoutes.use("/school", schoolRoutes);
 apiRoutes.use("/products", productsRoutes);
 apiRoutes.use("/shared", sharedRoutes);

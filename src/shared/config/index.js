@@ -119,6 +119,16 @@ const getConfigSchema = () => {
       .valid("development", "production", "staging", "test", "local")
       .required(),
     appName: Joi.string().default("School ERP SaaS"),
+    sentry: Joi.object({
+      dsn: Joi.string().optional(),
+      environment: Joi.string().default('development'),
+      release: Joi.string().optional(),
+      tracesSampleRate: Joi.number().min(0).max(1).default(0.1),
+      profilesSampleRate: Joi.number().min(0).max(1).default(0.1),
+      debug: Joi.boolean().default(false),
+      attachStacktrace: Joi.boolean().default(true),
+      sendDefaultPII: Joi.boolean().default(false),
+    }).optional(),
     mongo: Joi.object({
       uri: Joi.string().uri().required(),
       options: Joi.object({
@@ -252,6 +262,7 @@ const getConfigSchema = () => {
       docs: Joi.string().default("docs"),
     }).default(),
   }).unknown(true);
+
 };
 
 /**
@@ -354,6 +365,8 @@ const ensureFileUploadConfig = (config) => {
     };
   }
 };
+
+
 
 /**
  * Loads and validates environment-based configuration.

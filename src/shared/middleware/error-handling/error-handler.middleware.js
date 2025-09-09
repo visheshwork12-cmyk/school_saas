@@ -1,43 +1,78 @@
-// src/shared/middleware/error-handling/error-handler.middleware.js
-
-import { logger } from "#utils/core/logger.js";
-import config from "#config/index.js";
+// src/shared/middleware/error-handling/error-handler.middleware.js - SENTRY ENHANCED
+import * as Sentry from '@sentry/node';
+import { logger } from '#utils/core/logger.js';
+import config from '#config/index.js';
 
 /**
- * @description Global error handler middleware for production-level error tracking.
- * Handles errors, logs them, and sends appropriate responses.
- *
- * @param {Error} err - The error object.
- * @param {express.Request} req - The request object.
- * @param {express.Response} res - The response object.
- * @param {express.NextFunction} next - The next middleware function.
- *
- * @example
- * app.use(errorHandler);
+ * Enhanced error handler with Sentry integration
  */
-const errorHandler = (err, req, res, next) => {
-  const statusCode = err.statusCode || 500;
-  const message = err.message || "Internal Server Error";
+export const errorHandler = (error, req, res, next) => {
+  // Log the error
+  logger.error('Unhandled error:', {
+    error: error.message,
+    stack: error.stack,
+    url: req.url,
+    method: req.method,
+    tenantId: req.context?.tenantId,
+    userId: req.user?._id,
+    requestId: req.requestId,
+  });
 
-  // Log error with details for audit and monitoring
-  logger.error(
-    `Error: ${message} | Path: ${req.path} | Method: ${req.method} | IP: ${req.ip} | Stack: ${err.stack}`,
-  );
+  // ✅ Capture in Sentry with enhanced context
+  Sentry.withScope((scope) => {
+    // Set error context
+    scope.setContext('error_details', {
+      name: error.name,
+      message: error.message,
+      code: error.code,
+      status: error.status || error.statusCode,
+      stack: error.stack,
+    });
 
-  // Production error tracking (integrate with Sentry/Datadog if configured)
-  if (config.env === "production") {
-    // Example: sentry.captureException(err);
-  }
+    // Set business context
+    if (req.context?.tenantId) {
+      scope.setTag('affected_tenant', req.context.tenantId);
+      scope.setContext('business_impact', {
+        tenantId: req.context.tenantId,
+        schoolName: req.context.tenant?.name,
+        userCount: req.context.tenant?.stats?.totalUsers,
+        subscriptionStatus: req.context.tenant?.subscription?.status,
+      });
+    }
 
-  // Send response
-  res.status(statusCode).json({
+    // Set severity based on error type
+    if (error.status >= 500) {
+      scope.setLevel('error');
+    } else if (error.status >= 400) {
+      scope.setLevel('warning');
+    } else {
+      scope.setLevel('info');
+    }
+
+    // Add error fingerprinting for better grouping
+    scope.setFingerprint([
+      error.name,
+      error.message?.replace(/\d+/g, 'XXX'), // Replace numbers for better grouping
+      req.route?.path || req.url,
+    ]);
+
+    Sentry.captureException(error);
+  });
+
+  // Determine response
+  const isDev = config.env === 'development';
+  const status = error.status || error.statusCode || 500;
+  
+  const response = {
     success: false,
     error: {
-      code: err.code || "SERVER_ERROR",
-      message: config.env === "production" ? "Something went wrong" : message, // Hide details in prod
-      ...(config.env !== "production" && { stack: err.stack }), // Dev only
+      message: status >= 500 && !isDev ? 'Internal Server Error' : error.message,
+      code: error.code || 'INTERNAL_ERROR',
+      ...(isDev && { stack: error.stack }),
     },
-  });
-};
+    ...(req.requestId && { requestId: req.requestId }),
+    timestamp: new Date().toISOString(),
+  };
 
-export { errorHandler };
+  res.status(status).json(response);
+};

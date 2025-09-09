@@ -162,11 +162,19 @@
     "deploy:vercel:prod": "vercel --prod --env NODE_ENV=production",
     "deploy:hybrid": "npm run deploy:vercel:prod && npm run deploy:aws:prod",
     "test:cloudinary": "node scripts/test-cloudinary-connection.js",
-    "test:file-upload": "node scripts/test-file-upload.js"
+    "test:file-upload": "node scripts/test-file-upload.js",
+    "sentry:test": "node -e \"import('./src/routes/test-sentry.routes.js')\"",
+    "sentry:release:create": "node scripts/deployment/sentry-release.js create",
+    "sentry:release:deploy": "node scripts/deployment/sentry-release.js deploy",
+    "sentry:release:full": "node scripts/deployment/sentry-release.js full"
   },
   "dependencies": {
     "@cloudinary/react": "^1.14.3",
     "@cloudinary/url-gen": "^1.22.0",
+    "@sentry/node": "^10.10.0",
+    "@sentry/opentelemetry": "^10.10.0",
+    "@sentry/profiling-node": "^10.10.0",
+    "@sentry/utils": "^8.55.0",
     "bcryptjs": "^2.4.3",
     "bull": "^4.12.2",
     "cloudinary": "^1.41.3",
