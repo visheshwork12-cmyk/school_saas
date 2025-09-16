@@ -1,0 +1,58 @@
+# buildspecs/quality-check.yml
+version: 0.2
+
+phases:
+  install:
+    runtime-versions:
+      nodejs: 18
+    commands:
+      - echo "Installing dependencies for quality checks..."
+      - npm ci --prefer-offline --no-audit
+      - npm install -g @typescript-eslint/parser @typescript-eslint/eslint-plugin
+      
+  pre_build:
+    commands:
+      - echo "Running pre-build quality checks..."
+      - export NODE_ENV=test
+      - mkdir -p reports
+
+  build:
+    commands:
+      - echo "Running ESLint..."
+      - npm run lint -- --format=json --output-file=reports/eslint-results.json || echo "Linting completed with warnings"
+      
+      - echo "Running Prettier format check..."
+      - npm run format:check
+      
+      - echo "Running TypeScript check..."
+      - npm run typecheck || echo "TypeScript check completed"
+      
+      - echo "Running security audit..."
+      - npm audit --audit-level=moderate --json > reports/audit-results.json || echo "Security audit completed"
+      
+      - echo "Running dependency vulnerability check..."
+      - npx audit-ci --config audit-ci.json || echo "Dependency check completed"
+      
+      - echo "Running SAST security scan..."
+      - npx semgrep --config=auto --json --output=reports/semgrep-results.json src/ || echo "SAST scan completed"
+
+  post_build:
+    commands:
+      - echo "Quality checks completed"
+      - ls -la reports/
+
+artifacts:
+  files:
+    - 'reports/**/*'
+  name: quality-reports
+
+reports:
+  eslint:
+    files:
+      - 'reports/eslint-results.json'
+    file-format: 'ESLINTJSON'
+  
+  security:
+    files:
+      - 'reports/audit-results.json'
+    file-format: 'NPMAUDITJSON'

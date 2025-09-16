@@ -1,0 +1,287 @@
+# Fluentd Configuration for School ERP SaaS Log Aggregation
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: fluentd-config
+  namespace: monitoring
+  labels:
+    app: fluentd
+data:
+  fluent.conf: |
+    # School ERP SaaS Fluentd Configuration
+    @include system.conf
+    @include source.conf
+    @include filter.conf
+    @include output.conf
+    
+  system.conf: |
+    # System Configuration
+    <system>
+      root_dir /tmp/fluentd-buffers/
+    </system>
+    
+  source.conf: |
+    # Input Sources
+    
+    # Kubernetes Pod Logs
+    <source>
+      @type tail
+      @id in_tail_container_logs
+      path /var/log/containers/*.log
+      pos_file /var/log/fluentd-containers.log.pos
+      tag kubernetes.*
+      read_from_head true
+      <parse>
+        @type multi_format
+        <pattern>
+          format json
+          time_key time
+          time_format %Y-%m-%dT%H:%M:%S.%NZ
+        </pattern>
+        <pattern>
+          format /^(?<time>.+) (?<stream>stdout|stderr) [^ ]* (?<log>.*)$/
+          time_format %Y-%m-%dT%H:%M:%S.%N%:z
+        </pattern>
+      </parse>
+    </source>
+
+    # Application Logs
+    <source>
+      @type forward
+      @id input_forward
+      port 24224
+      bind 0.0.0.0
+      chunk_size_limit 10m
+      chunk_size_warn_limit 8m
+    </source>
+
+    # System Logs
+    <source>
+      @type systemd
+      @id in_systemd_kubelet
+      matches [{ "_SYSTEMD_UNIT": "kubelet.service" }]
+      <storage>
+        @type local
+        persistent true
+        path /var/log/fluentd-journald-kubelet-cursor.json
+      </storage>
+      <entry>
+        field_map {"MESSAGE": "message", "_HOSTNAME": "hostname", "_SYSTEMD_UNIT": "systemd_unit"}
+        fields_strip_underscores true
+        fields_lowercase true
+      </entry>
+      tag kubelet
+    </source>
+
+    # School ERP Audit Logs
+    <source>
+      @type http
+      @id input_http
+      port 8888
+      bind 0.0.0.0
+      body_size_limit 32m
+      keepalive_timeout 10s
+      <transport tls>
+        cert_path /etc/ssl/certs/fluentd.crt
+        private_key_path /etc/ssl/private/fluentd.key
+      </transport>
+      <parse>
+        @type json
+      </parse>
+      add_http_headers true
+      <format>
+        @type json
+      </format>
+    </source>
+    
+  filter.conf: |
+    # Filters and Processing
+    
+    # Kubernetes Metadata Filter
+    <filter kubernetes.**>
+      @type kubernetes_metadata
+      @id filter_kube_metadata
+      kubernetes_url "#{ENV['FLUENT_FILTER_KUBERNETES_URL'] || 'https://' + ENV['KUBERNETES_SERVICE_HOST'] + ':' + ENV['KUBERNETES_SERVICE_PORT'] + '/api'}"
+      verify_ssl "#{ENV['KUBERNETES_VERIFY_SSL'] || true}"
+      ca_file "#{ENV['KUBERNETES_CA_FILE']}"
+      skip_labels "#{ENV['FLUENT_KUBERNETES_METADATA_SKIP_LABELS'] || 'false'}"
+      skip_container_metadata "#{ENV['FLUENT_KUBERNETES_METADATA_SKIP_CONTAINER_METADATA'] || 'false'}"
+      skip_master_url "#{ENV['FLUENT_KUBERNETES_METADATA_SKIP_MASTER_URL'] || 'false'}"
+      skip_namespace_metadata "#{ENV['FLUENT_KUBERNETES_METADATA_SKIP_NAMESPACE_METADATA'] || 'false'}"
+    </filter>
+
+    # School ERP Application Logs Filter
+    <filter kubernetes.**school-erp**>
+      @type parser
+      key_name log
+      reserve_data true
+      remove_key_name_field true
+      <parse>
+        @type json
+        json_parser_error_log_level warn
+        time_key timestamp
+        time_format %Y-%m-%dT%H:%M:%S.%NZ
+      </parse>
+    </filter>
+
+    # Tenant Isolation Filter
+    <filter kubernetes.**school-erp**>
+      @type record_transformer
+      <record>
+        tenant_id ${record.dig("kubernetes", "labels", "tenant") || "unknown"}
+        service_name ${record.dig("kubernetes", "labels", "app") || "unknown"}
+        environment ${record.dig("kubernetes", "labels", "environment") || "unknown"}
+        log_level ${record.dig("level") || "info"}
+      </record>
+    </filter>
+
+    # Security & PII Masking Filter
+    <filter **>
+      @type record_modifier
+      <record>
+        # Mask sensitive data
+        log ${if record.has_key?("log"); record["log"].gsub(/"password"\s*:\s*"[^"]*"/, '"password":"***"').gsub(/"token"\s*:\s*"[^"]*"/, '"token":"***"').gsub(/\b\d{4}[-\s]?\d{4}[-\s]?\d{4}[-\s]?\d{4}\b/, "****-****-****-****"); record["log"]; end}
+        message ${if record.has_key?("message"); record["message"].gsub(/"password"\s*:\s*"[^"]*"/, '"password":"***"').gsub(/"token"\s*:\s*"[^"]*"/, '"token":"***"'); record["message"]; end}
+      </record>
+    </filter>
+
+    # Error Log Enhancement
+    <filter **>
+      @type grep
+      <regexp>
+        key log_level
+        pattern ^(error|ERROR|fatal|FATAL)$
+      </regexp>
+      <record>
+        alert_required true
+        severity critical
+      </record>
+    </filter>
+    
+  output.conf: |
+    # Output Configurations
+    
+    # Send to Elasticsearch
+    <match **>
+      @type elasticsearch
+      @id out_es
+      @log_level info
+      include_tag_key true
+      host "#{ENV['FLUENT_ELASTICSEARCH_HOST'] || 'elasticsearch.monitoring.svc.cluster.local'}"
+      port "#{ENV['FLUENT_ELASTICSEARCH_PORT'] || '9200'}"
+      path "#{ENV['FLUENT_ELASTICSEARCH_PATH'] || ''}"
+      scheme "#{ENV['FLUENT_ELASTICSEARCH_SCHEME'] || 'http'}"
+      ssl_verify "#{ENV['FLUENT_ELASTICSEARCH_SSL_VERIFY'] || 'true'}"
+      ssl_version "#{ENV['FLUENT_ELASTICSEARCH_SSL_VERSION'] || 'TLSv1_2'}"
+      user "#{ENV['FLUENT_ELASTICSEARCH_USER'] || ''}"
+      password "#{ENV['FLUENT_ELASTICSEARCH_PASSWORD'] || ''}"
+      reload_connections false
+      reconnect_on_error true
+      reload_on_failure true
+      log_es_400_reason false
+      logstash_prefix school-erp-logs
+      logstash_dateformat %Y.%m.%d
+      logstash_format true
+      index_name school-erp-logs
+      type_name _doc
+      include_timestamp true
+      template_name school_erp_template
+      template_file /etc/fluent/template/school_erp_template.json
+      template_overwrite true
+      sniffer_class_name Fluent::Plugin::ElasticsearchSimpleSniffer
+      request_timeout 5s
+      suppress_type_name true
+      
+      # Multi-tenant indexing
+      <buffer tag, time, tenant_id>
+        @type file
+        path /var/log/fluentd-buffers/school-erp.buffer
+        flush_mode interval
+        retry_type exponential_backoff
+        flush_thread_count 2
+        flush_interval 10s
+        retry_forever true
+        retry_max_interval 30
+        chunk_limit_size 2M
+        total_limit_size 500M
+        overflow_action block
+      </buffer>
+      
+      # Custom index per tenant
+      <format>
+        @type json
+      </format>
+      
+      target_index_key target_index
+      <record_transformer>
+        target_index school-erp-${tenant_id}-${time.strftime('%Y.%m.%d')}
+      </record_transformer>
+    </match>
+
+    # Backup to S3 for compliance
+    <match **>
+      @type s3
+      @id out_s3
+      s3_bucket "#{ENV['S3_BUCKET'] || 'school-erp-logs'}"
+      s3_region "#{ENV['S3_REGION'] || 'us-east-1'}"
+      path logs/${tag}/%Y/%m/%d/
+      s3_object_key_format %{path}%{time_slice}_%{index}_%{hostname}.%{file_extension}
+      time_slice_format %Y%m%d_%H
+      <buffer tag, time>
+        @type file
+        path /var/log/fluentd-buffers/s3
+        timekey 3600
+        timekey_wait 10m
+        chunk_limit_size 256m
+      </buffer>
+      <format>
+        @type json
+      </format>
+    </match>
+
+  school_erp_template.json: |
+    {
+      "index_patterns": ["school-erp-*"],
+      "settings": {
+        "index.refresh_interval": "5s",
+        "index.number_of_shards": 1,
+        "index.number_of_replicas": 0,
+        "index.mapping.total_fields.limit": 2000
+      },
+      "mappings": {
+        "properties": {
+          "@timestamp": {
+            "type": "date"
+          },
+          "kubernetes": {
+            "properties": {
+              "container_name": { "type": "keyword" },
+              "namespace_name": { "type": "keyword" },
+              "pod_name": { "type": "keyword" },
+              "labels": {
+                "properties": {
+                  "app": { "type": "keyword" },
+                  "version": { "type": "keyword" },
+                  "environment": { "type": "keyword" },
+                  "tenant": { "type": "keyword" }
+                }
+              }
+            }
+          },
+          "tenant_id": { "type": "keyword" },
+          "service_name": { "type": "keyword" },
+          "environment": { "type": "keyword" },
+          "log_level": { "type": "keyword" },
+          "message": {
+            "type": "text",
+            "analyzer": "standard"
+          },
+          "user_id": { "type": "keyword" },
+          "request_id": { "type": "keyword" },
+          "school_id": { "type": "keyword" },
+          "audit_action": { "type": "keyword" },
+          "response_time": { "type": "integer" },
+          "status_code": { "type": "integer" }
+        }
+      }
+    }

@@ -166,7 +166,12 @@
     "sentry:test": "node -e \"import('./src/routes/test-sentry.routes.js')\"",
     "sentry:release:create": "node scripts/deployment/sentry-release.js create",
     "sentry:release:deploy": "node scripts/deployment/sentry-release.js deploy",
-    "sentry:release:full": "node scripts/deployment/sentry-release.js full"
+    "sentry:release:full": "node scripts/deployment/sentry-release.js full",
+    "deploy:ecs": "./scripts/deployment/deploy-ecs.sh",
+    "deploy:ecs:prod": "./scripts/deployment/deploy-ecs.sh production deploy",
+    "monitor:ecs": "./scripts/deployment/deploy-ecs.sh production monitor",
+    "test:scaling": "./scripts/deployment/deploy-ecs.sh production test",
+    "ecs:status": "./scripts/deployment/deploy-ecs.sh production status"
   },
   "dependencies": {
     "@cloudinary/react": "^1.14.3",

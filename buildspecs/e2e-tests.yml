@@ -1,0 +1,45 @@
+# buildspecs/e2e-tests.yml
+version: 0.2
+
+phases:
+  install:
+    runtime-versions:
+      nodejs: 18
+    commands:
+      - echo "Installing E2E test dependencies..."
+      - npm ci --prefer-offline --no-audit
+      - npx playwright install --with-deps chromium
+
+  pre_build:
+    commands:
+      - echo "Setting up E2E test environment..."
+      - export NODE_ENV=test
+      - mkdir -p reports test-results
+      - echo "Waiting for application to be ready..."
+      - timeout 300 bash -c 'until curl -f $API_ENDPOINT/health; do sleep 10; done'
+
+  build:
+    commands:
+      - echo "Running E2E tests..."
+      - npm run test:e2e -- --reporter=junit --output-dir=reports
+      
+      - echo "Running smoke tests..."
+      - npm run test:smoke -- --baseURL=$API_ENDPOINT
+
+  post_build:
+    commands:
+      - echo "E2E tests completed"
+      - ls -la reports/
+      - ls -la test-results/
+
+artifacts:
+  files:
+    - 'reports/**/*'
+    - 'test-results/**/*'
+  name: e2e-test-results
+
+reports:
+  e2e-tests:
+    files:
+      - 'reports/junit.xml'
+    file-format: 'JUNITXML'

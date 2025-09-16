@@ -1,0 +1,296 @@
+# infrastructure/terraform/terraform.tfvars.example
+# Example Terraform Variables for School ERP SaaS
+# Copy this file to terraform.tfvars and customize for your environment
+
+# =============================================================================
+# CORE PROJECT CONFIGURATION
+# =============================================================================
+
+project_name = "school-erp-saas"
+environment  = "development"  # development, staging, production
+aws_region   = "us-east-1"
+secondary_aws_region = "us-west-2"
+
+# Project ownership and billing
+project_owner = "devops-team@school-erp.com"
+cost_center   = "engineering"
+data_classification = "sensitive"
+
+# =============================================================================
+# AWS PROVIDER CONFIGURATION
+# =============================================================================
+
+# AWS Profile (leave empty to use default credentials)
+aws_profile = ""
+
+# Cross-account role assumption (optional)
+assume_role_arn = ""
+external_id     = ""
+
+# Maintenance window for updates
+maintenance_window = "sun:03:00-sun:04:00"
+
+# =============================================================================
+# NETWORKING CONFIGURATION
+# =============================================================================
+
+# VPC Configuration
+vpc_cidr = "10.0.0.0/16"
+enable_dns_hostnames = true
+enable_dns_support   = true
+enable_nat_gateway   = true
+single_nat_gateway   = false  # Set to true for cost optimization in dev
+
+# Subnet Configuration
+private_subnets = ["10.0.1.0/24", "10.0.2.0/24", "10.0.3.0/24"]
+public_subnets  = ["10.0.101.0/24", "10.0.102.0/24", "10.0.103.0/24"]
+database_subnets = ["10.0.201.0/24", "10.0.202.0/24", "10.0.203.0/24"]
+
+# =============================================================================
+# SECURITY CONFIGURATION
+# =============================================================================
+
+# Domain and SSL
+domain_name = "dev.school-erp.com"
+certificate_domain = "*.dev.school-erp.com"
+enable_ssl = true
+
+# Security features
+enable_waf = true
+enable_shield = false  # Set to true for production
+enable_guardduty = true
+
+# Allowed CIDR blocks for access
+allowed_cidr_blocks = ["0.0.0.0/0"]  # Restrict in production
+
+# =============================================================================
+# COMPUTE CONFIGURATION
+# =============================================================================
+
+# ECS Configuration
+enable_ecs = true
+ecs_cluster_name = "school-erp"
+ecs_capacity_providers = ["FARGATE", "FARGATE_SPOT"]
+
+# Task Definition
+app_cpu    = 512   # 0.5 vCPU
+app_memory = 1024  # 1 GB
+app_port   = 3000
+desired_count = 2
+
+# Auto Scaling
+min_capacity = 1
+max_capacity = 10
+target_cpu_utilization = 70
+target_memory_utilization = 80
+
+# EKS Configuration (if using Kubernetes)
+enable_eks = false
+eks_cluster_version = "1.28"
+eks_node_group_instance_types = ["t3.medium"]
+eks_node_group_desired_size = 2
+eks_node_group_min_size = 1
+eks_node_group_max_size = 5
+
+# =============================================================================
+# DATABASE CONFIGURATION
+# =============================================================================
+
+# RDS Configuration
+enable_rds = false  # Using MongoDB Atlas instead
+rds_engine = "postgres"
+rds_engine_version = "15.4"
+rds_instance_class = "db.t3.micro"
+rds_allocated_storage = 20
+rds_max_allocated_storage = 100
+
+# MongoDB Configuration (if using self-hosted)
+enable_mongodb = false
+mongodb_instance_type = "t3.small"
+mongodb_volume_size = 50
+
+# ElastiCache Redis Configuration
+enable_elasticache = true
+redis_node_type = "cache.t3.micro"
+redis_num_cache_nodes = 1
+redis_parameter_group_name = "default.redis7"
+redis_engine_version = "7.0"
+redis_port = 6379
+
+# =============================================================================
+# STORAGE CONFIGURATION
+# =============================================================================
+
+# S3 Configuration
+s3_bucket_name = "school-erp-dev-storage"
+enable_s3_versioning = true
+s3_lifecycle_enabled = true
+
+# Backup configuration
+backup_enabled = true
+backup_retention_days = 7
+backup_schedule = "cron(0 2 * * ? *)"  # Daily at 2 AM
+
+# =============================================================================
+# CDN AND STATIC ASSETS
+# =============================================================================
+
+# CloudFront Configuration
+enable_cloudfront = true
+cloudfront_price_class = "PriceClass_100"  # US, Canada, Europe
+cloudfront_minimum_protocol_version = "TLSv1.2_2021"
+
+# Static Assets
+static_assets_bucket = "school-erp-dev-static"
+enable_static_website = true
+
+# =============================================================================
+# LOAD BALANCER CONFIGURATION
+# =============================================================================
+
+# Application Load Balancer
+enable_alb = true
+alb_idle_timeout = 60
+enable_deletion_protection = false  # Set to true for production
+
+# Target Group Health Check
+health_check_path = "/health"
+health_check_timeout = 5
+health_check_interval = 30
+healthy_threshold = 2
+unhealthy_threshold = 2
+
+# =============================================================================
+# MONITORING AND LOGGING
+# =============================================================================
+
+# CloudWatch Configuration
+enable_cloudwatch = true
+log_retention_days = 7  # 7 days for dev, 30+ for production
+enable_detailed_monitoring = true
+
+# Metrics and Alarms
+enable_custom_metrics = true
+cpu_alarm_threshold = 80
+memory_alarm_threshold = 85
+response_time_threshold = 2000  # milliseconds
+
+# =============================================================================
+# SECRETS AND CONFIGURATION
+# =============================================================================
+
+# Secrets Manager
+enable_secrets_manager = true
+
+# Environment Variables (non-sensitive)
+environment_variables = {
+  NODE_ENV = "development"
+  API_VERSION = "v1"
+  LOG_LEVEL = "debug"
+  ENABLE_DETAILED_ERRORS = "true"
+  ENABLE_API_DOCS = "true"
+}
+
+# Secret ARNs (reference existing secrets)
+secrets = {
+  # Database secrets
+  mongodb_uri = "arn:aws:secretsmanager:us-east-1:123456789012:secret:mongodb-uri-dev"
+  
+  # Application secrets
+  jwt_access_secret = "arn:aws:secretsmanager:us-east-1:123456789012:secret:jwt-access-dev"
+  jwt_refresh_secret = "arn:aws:secretsmanager:us-east-1:123456789012:secret:jwt-refresh-dev"
+  
+  # Third-party service secrets
+  cloudinary_api_secret = "arn:aws:secretsmanager:us-east-1:123456789012:secret:cloudinary-api-dev"
+  sendgrid_api_key = "arn:aws:secretsmanager:us-east-1:123456789012:secret:sendgrid-api-dev"
+  stripe_secret_key = "arn:aws:secretsmanager:us-east-1:123456789012:secret:stripe-secret-dev"
+}
+
+# =============================================================================
+# FEATURE FLAGS
+# =============================================================================
+
+# Infrastructure features
+enable_multi_az = false  # Set to true for production
+enable_encryption = true
+enable_backup = true
+enable_monitoring = true
+
+# Application features
+enable_redis_cluster = false
+enable_elasticsearch = false
+enable_sqs = false
+enable_sns = false
+
+# =============================================================================
+# COST OPTIMIZATION
+# =============================================================================
+
+# Spot instances for development
+use_spot_instances = true
+spot_price = "0.10"
+
+# Resource scheduling (stop/start for cost savings)
+enable_resource_scheduling = true
+schedule_start_time = "08:00"  # Start resources at 8 AM
+schedule_stop_time = "20:00"   # Stop resources at 8 PM
+
+# Reserved instances (for production)
+enable_reserved_instances = false
+
+# =============================================================================
+# DEVELOPMENT SPECIFIC SETTINGS
+# =============================================================================
+
+# Development overrides
+dev_skip_deletion_protection = true
+dev_force_destroy_s3 = true
+dev_enable_debug_logging = true
+dev_disable_ssl_redirect = false
+
+# Testing and QA
+enable_test_data_seeding = true
+enable_mock_services = false
+
+# =============================================================================
+# PRODUCTION OVERRIDES (uncomment for production)
+# =============================================================================
+
+# environment = "production"
+# enable_deletion_protection = true
+# enable_shield = true
+# single_nat_gateway = false
+# enable_multi_az = true
+# min_capacity = 2
+# desired_count = 4
+# log_retention_days = 90
+# backup_retention_days = 30
+# use_spot_instances = false
+# enable_resource_scheduling = false
+# dev_skip_deletion_protection = false
+# dev_force_destroy_s3 = false
+# allowed_cidr_blocks = ["10.0.0.0/8", "172.16.0.0/12", "192.168.0.0/16"]
+
+# =============================================================================
+# STAGING OVERRIDES (uncomment for staging)
+# =============================================================================
+
+# environment = "staging"
+# desired_count = 2
+# log_retention_days = 14
+# backup_retention_days = 14
+# use_spot_instances = true
+# enable_resource_scheduling = true
+
+# =============================================================================
+# CUSTOM TAGS
+# =============================================================================
+
+additional_tags = {
+  Department = "Engineering"
+  Application = "School-ERP-SaaS"
+  CreatedBy = "terraform"
+  Schedule = "business-hours"
+  Backup = "enabled"
+  Monitoring = "enhanced"
+}

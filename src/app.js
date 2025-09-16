@@ -13,6 +13,8 @@ import { errorHandler } from "#shared/middleware/error-handling/error-handler.mi
 import { AuditService } from "#core/audit/services/audit-log.service.js";
 import HTTP_STATUS from "#constants/http-status.js";
 import healthRoutes from '#routes/health.routes.js';
+import { requestMetricsMiddleware } from '#shared/middleware/monitoring/request-metrics.middleware.js';
+import { cloudWatchService } from '#core/monitoring/services/cloudwatch.service.js';
 
 // 🔧 SENTRY INITIALIZATION - Enhanced with better error handling
 let Sentry = null;
@@ -23,7 +25,7 @@ try {
   if (process.env.SENTRY_DSN && process.env.NODE_ENV !== 'test') {
     const sentryModule = await import('@sentry/node');
     Sentry = sentryModule.default || sentryModule;
-    
+
     // Initialize Sentry
     Sentry.init({
       dsn: process.env.SENTRY_DSN,
@@ -37,7 +39,7 @@ try {
         return event;
       },
     });
-    
+
     sentryEnabled = true;
     logger.info('✅ Sentry initialized successfully');
   } else {
@@ -103,7 +105,7 @@ const configureSentryMiddleware = async (app) => {
 
     // Tracing handler
     app.use(Sentry.Handlers.tracingHandler());
-    
+
     logger.info('✅ Sentry middleware configured successfully');
     return true;
   } catch (error) {
@@ -196,11 +198,11 @@ const configureCors = (app, deploymentInfo) => {
         callback(null, true);
       } else {
         const allowedOrigins = baseConfig.cors?.allowedOrigins || [
-          'http://localhost:3000', 
+          'http://localhost:3000',
           'http://localhost:3001',
           'http://localhost:5173'  // Vite default
         ];
-        
+
         if (
           !origin ||
           allowedOrigins.includes("*") ||
@@ -251,7 +253,7 @@ const configureBodyParsing = (app, deploymentInfo) => {
       },
     }),
   );
-  
+
   app.use(
     express.urlencoded({
       extended: true,
@@ -277,6 +279,7 @@ const configureCompression = (app, deploymentInfo) => {
     }),
   );
 };
+
 
 /**
  * Configure rate limiting - Enhanced
@@ -314,7 +317,7 @@ const configureRateLimiting = (app, deploymentInfo) => {
         } catch (error) {
           logger.debug("Failed to log rate limit event", error.message);
         }
-        
+
         res.status(429).json({
           success: false,
           error: {
@@ -468,7 +471,7 @@ const configureSwagger = async (app, deploymentInfo) => {
                 "get": {
                   "summary": "Health Check",
                   "tags": ["System"],
-                  "responses": { 
+                  "responses": {
                     "200": { "description": "System is healthy" },
                     "503": { "description": "System is unhealthy" }
                   }
@@ -478,7 +481,7 @@ const configureSwagger = async (app, deploymentInfo) => {
                 "get": {
                   "summary": "System Status",
                   "tags": ["System"],
-                  "responses": { 
+                  "responses": {
                     "200": { "description": "System status information" }
                   }
                 }
@@ -557,8 +560,8 @@ const configureSwagger = async (app, deploymentInfo) => {
           logger.info(`📬 Postman collection downloaded: ${collection}.json`);
         } catch (error) {
           logger.error(`Failed to serve Postman collection: ${collection}`, error);
-          res.status(404).json({ 
-            error: 'Collection not found. Run "npm run docs:postman" to generate collections.' 
+          res.status(404).json({
+            error: 'Collection not found. Run "npm run docs:postman" to generate collections.'
           });
         }
       });
@@ -567,7 +570,7 @@ const configureSwagger = async (app, deploymentInfo) => {
     // Enhanced Swagger UI with conditional Postman integration
     app.get('/api-docs', (req, res) => {
       const baseUrl = `${req.protocol}://${req.get('host')}`;
-      
+
       const postmanSection = existingCollections.length > 0 ? `
       <!-- Postman Collections Section -->
       <div class="postman-section">
@@ -575,14 +578,14 @@ const configureSwagger = async (app, deploymentInfo) => {
         <p>Download ready-to-use Postman collections for testing APIs:</p>
         <div style="margin: 15px 0;">
           ${existingCollections.map(collection => {
-            const name = collection.replace('.json', '');
-            const displayName = name.split('-').map(word => 
-              word.charAt(0).toUpperCase() + word.slice(1)
-            ).join(' ');
-            return `<a href="${baseUrl}/postman/${name}" class="postman-link" target="_blank">
+        const name = collection.replace('.json', '');
+        const displayName = name.split('-').map(word =>
+          word.charAt(0).toUpperCase() + word.slice(1)
+        ).join(' ');
+        return `<a href="${baseUrl}/postman/${name}" class="postman-link" target="_blank">
               📋 ${displayName} <span class="status-badge">Ready</span>
             </a>`;
-          }).join('')}
+      }).join('')}
         </div>
       </div>` : '';
 
@@ -672,7 +675,7 @@ const configureSwagger = async (app, deploymentInfo) => {
     logger.info(`📚 Enhanced Swagger UI configured (${existingCollections.length}/3 Postman collections available)`);
   } catch (error) {
     logger.error('Failed to configure enhanced Swagger:', error);
-    
+
     // Minimal fallback
     app.get("/api-docs.json", (req, res) => {
       res.json({
@@ -706,7 +709,7 @@ const configureFileUpload = (app, deploymentInfo) => {
         requestId: req.requestId
       });
     }
-    
+
     if (error && error.code === 'LIMIT_UNEXPECTED_FILE') {
       return res.status(400).json({
         success: false,
@@ -719,7 +722,7 @@ const configureFileUpload = (app, deploymentInfo) => {
         requestId: req.requestId
       });
     }
-    
+
     next(error);
   });
 };
@@ -789,7 +792,7 @@ const configureTenantAndLogging = (app, deploymentInfo) => {
           tenantId: req.context?.tenantId,
           userAgent: req.get("User-Agent"),
           ip: req.ip,
-        }).catch(() => {}); // Silent catch to avoid breaking requests
+        }).catch(() => { }); // Silent catch to avoid breaking requests
       }
 
       logger.debug(`${req.method} ${req.path}`, {
@@ -819,7 +822,7 @@ const configureApiRoutes = async (app) => {
       logger.info("✅ API routes configured");
     } catch (error) {
       logger.warn("⚠️ API routes not found:", error.message);
-      
+
       // Create a basic test route if main routes are missing
       app.get("/api/v1/test", (req, res) => {
         res.json({
@@ -873,7 +876,7 @@ const errorHandlerMiddleware = (error, req, res, next) => {
     path: req.path,
     method: req.method,
   });
-  
+
   // Capture error with Sentry if available
   if (sentryEnabled && Sentry) {
     try {
@@ -890,7 +893,7 @@ const errorHandlerMiddleware = (error, req, res, next) => {
       logger.debug('Failed to capture error with Sentry:', sentryError.message);
     }
   }
-  
+
   if (res.headersSent) {
     return next(error);
   }
@@ -898,7 +901,7 @@ const errorHandlerMiddleware = (error, req, res, next) => {
   // Determine error status and message
   const status = error.status || error.statusCode || 500;
   const isDevelopment = process.env.NODE_ENV === 'development';
-  
+
   res.status(status).json({
     success: false,
     error: {
@@ -931,7 +934,7 @@ const createApp = async () => {
 
     // Configure middleware in optimal order
     await configureSentryMiddleware(app);    // 1. Sentry request handler (if available)
-    
+    app.use(requestMetricsMiddleware);
     app.use(passport.initialize());          // 2. Passport
     app.use(requestId);                      // 3. Request ID
 
@@ -940,22 +943,28 @@ const createApp = async () => {
     configureBodyParsing(app, deploymentInfo); // 6. Body parsing
     configureCompression(app, deploymentInfo); // 7. Compression
     configureRateLimiting(app, deploymentInfo); // 8. Rate limiting
-    
+
     configurePublicRoutes(app, deploymentInfo); // 9. Public routes
     await configureSwagger(app, deploymentInfo); // 10. Enhanced Swagger docs
     configureFileUpload(app, deploymentInfo);  // 11. File upload middleware
-    
+
     configureTenantAndLogging(app, deploymentInfo); // 12. Tenant & logging
     await configureApiRoutes(app);             // 13. API routes
 
     // Error handling middleware (must be last)
     configureSentryErrorHandler(app);          // 14. Sentry error handler (if available)
     app.use(notFoundMiddleware);               // 15. 404 handler
-    app.use(errorHandlerMiddleware);           // 16. Final error handler
+    app.use(errorHandlerMiddleware);
+
+    process.on('SIGTERM', async () => {
+      logger.info('SIGTERM received, shutting down gracefully');
+      await cloudWatchService.shutdown();
+      process.exit(0);
+    });// 16. Final error handler
 
     logger.info(
       `✅ Express app initialized successfully for ${deploymentInfo.platform} deployment`,
-      { 
+      {
         sentryEnabled,
         features: {
           security: true,

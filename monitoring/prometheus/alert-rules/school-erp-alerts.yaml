@@ -1,0 +1,280 @@
+# School ERP SaaS Comprehensive Alerting Rules
+apiVersion: monitoring.coreos.com/v1
+kind: PrometheusRule
+metadata:
+  name: school-erp-alerts
+  namespace: monitoring
+  labels:
+    app: prometheus
+    component: alerting
+spec:
+  groups:
+  
+  # === DATABASE ALERTS ===
+  - name: database.rules
+    interval: 30s
+    rules:
+    
+    # Database Connection Failures
+    - alert: DatabaseConnectionFailure
+      expr: absent(mongodb_up{job="mongodb-exporter"}) or mongodb_up{job="mongodb-exporter"} == 0
+      for: 2m
+      labels:
+        severity: critical
+        service: mongodb
+        team: platform
+      annotations:
+        summary: "Database connection failure detected"
+        description: "MongoDB is not responding or connection failed for tenant {{ $labels.tenant_id }}. Check database connectivity and credentials."
+        runbook_url: "https://runbooks.school-erp.com/database-connection-failure"
+    
+    - alert: DatabaseReplicaSetDown
+      expr: mongodb_mongod_replset_member_health{state="PRIMARY"} == 0
+      for: 5m
+      labels:
+        severity: critical
+        service: mongodb
+      annotations:
+        summary: "MongoDB Replica Set Primary is down"
+        description: "Primary replica set member is down, potential data availability issues."
+    
+    - alert: DatabaseSlowQueries
+      expr: rate(mongodb_op_counters_total{type="query"}[5m]) > 1000
+      for: 10m
+      labels:
+        severity: warning
+        service: mongodb
+      annotations:
+        summary: "High database query rate detected"
+        description: "Database is experiencing high query load: {{ $value }} queries/sec"
+    
+    - alert: DatabaseConnectionsHigh
+      expr: mongodb_connections{state="current"} / mongodb_connections{state="available"} > 0.8
+      for: 5m
+      labels:
+        severity: warning
+        service: mongodb
+      annotations:
+        summary: "High database connection usage"
+        description: "Database connection usage is at {{ $value | humanizePercentage }}"
+
+  # === SYSTEM RESOURCE ALERTS ===
+  - name: system.rules
+    interval: 30s
+    rules:
+    
+    # High Memory Usage
+    - alert: HighMemoryUsage
+      expr: (1 - (node_memory_MemAvailable_bytes / node_memory_MemTotal_bytes)) * 100 > 85
+      for: 10m
+      labels:
+        severity: warning
+        component: system
+      annotations:
+        summary: "High memory usage on {{ $labels.instance }}"
+        description: "Memory usage is {{ $value | humanizePercentage }} on instance {{ $labels.instance }}"
+        runbook_url: "https://runbooks.school-erp.com/high-memory-usage"
+    
+    - alert: CriticalMemoryUsage
+      expr: (1 - (node_memory_MemAvailable_bytes / node_memory_MemTotal_bytes)) * 100 > 95
+      for: 5m
+      labels:
+        severity: critical
+        component: system
+      annotations:
+        summary: "Critical memory usage on {{ $labels.instance }}"
+        description: "Memory usage is critically high at {{ $value | humanizePercentage }} on {{ $labels.instance }}"
+        action_required: "immediate"
+    
+    # High CPU Usage
+    - alert: HighCPUUsage
+      expr: 100 - (avg by (instance) (irate(node_cpu_seconds_total{mode="idle"}[5m])) * 100) > 80
+      for: 15m
+      labels:
+        severity: warning
+        component: system
+      annotations:
+        summary: "High CPU usage on {{ $labels.instance }}"
+        description: "CPU usage is {{ $value | humanizePercentage }} on instance {{ $labels.instance }}"
+        runbook_url: "https://runbooks.school-erp.com/high-cpu-usage"
+    
+    - alert: CriticalCPUUsage
+      expr: 100 - (avg by (instance) (irate(node_cpu_seconds_total{mode="idle"}[5m])) * 100) > 95
+      for: 5m
+      labels:
+        severity: critical
+        component: system
+      annotations:
+        summary: "Critical CPU usage on {{ $labels.instance }}"
+        description: "CPU usage is critically high at {{ $value | humanizePercentage }}"
+        action_required: "immediate"
+    
+    # Disk Space Alerts
+    - alert: DiskSpaceHigh
+      expr: (1 - (node_filesystem_avail_bytes{mountpoint="/"} / node_filesystem_size_bytes{mountpoint="/"})) * 100 > 85
+      for: 10m
+      labels:
+        severity: warning
+        component: system
+      annotations:
+        summary: "High disk usage on {{ $labels.instance }}"
+        description: "Disk usage is {{ $value | humanizePercentage }} on {{ $labels.instance }}"
+
+  # === APPLICATION ALERTS ===
+  - name: application.rules
+    interval: 30s
+    rules:
+    
+    # Authentication Failures
+    - alert: HighAuthenticationFailures
+      expr: increase(school_erp_authentication_failures_total[10m]) > 10
+      for: 5m
+      labels:
+        severity: warning
+        service: authentication
+        security: true
+      annotations:
+        summary: "High authentication failure rate"
+        description: "{{ $value }} authentication failures in the last 10 minutes for tenant {{ $labels.tenant_id }}"
+        runbook_url: "https://runbooks.school-erp.com/auth-failures"
+    
+    - alert: SuspiciousAuthenticationActivity
+      expr: increase(school_erp_authentication_failures_total[5m]) > 50
+      for: 2m
+      labels:
+        severity: critical
+        service: authentication
+        security: true
+      annotations:
+        summary: "Potential brute force attack detected"
+        description: "{{ $value }} authentication failures in 5 minutes - possible attack on tenant {{ $labels.tenant_id }}"
+        action_required: "investigate_immediately"
+    
+    - alert: AuthenticationServiceDown
+      expr: absent(up{job="school-erp-api", endpoint="auth"}) or up{job="school-erp-api", endpoint="auth"} == 0
+      for: 3m
+      labels:
+        severity: critical
+        service: authentication
+      annotations:
+        summary: "Authentication service is down"
+        description: "Authentication endpoint is not responding"
+    
+    # File Upload Failures
+    - alert: FileUploadFailures
+      expr: increase(school_erp_file_upload_failures_total[10m]) > 5
+      for: 5m
+      labels:
+        severity: warning
+        service: file-upload
+      annotations:
+        summary: "File upload failures detected"
+        description: "{{ $value }} file upload failures in the last 10 minutes for tenant {{ $labels.tenant_id }}"
+        runbook_url: "https://runbooks.school-erp.com/file-upload-failures"
+    
+    - alert: FileUploadServiceDown
+      expr: absent(up{job="school-erp-api", endpoint="files"}) or up{job="school-erp-api", endpoint="files"} == 0
+      for: 5m
+      labels:
+        severity: critical
+        service: file-upload
+      annotations:
+        summary: "File upload service is down"
+        description: "File upload endpoint is not responding"
+    
+    - alert: StorageQuotaExceeded
+      expr: school_erp_storage_usage_bytes / school_erp_storage_quota_bytes > 0.9
+      for: 5m
+      labels:
+        severity: warning
+        service: storage
+      annotations:
+        summary: "Storage quota nearly exceeded"
+        description: "Storage usage is {{ $value | humanizePercentage }} of quota for tenant {{ $labels.tenant_id }}"
+
+  # === SUBSCRIPTION & BILLING ALERTS ===
+  - name: billing.rules
+    interval: 60s
+    rules:
+    
+    # Subscription Payment Failures
+    - alert: SubscriptionPaymentFailures
+      expr: increase(school_erp_payment_failures_total{type="subscription"}[30m]) > 0
+      for: 1m
+      labels:
+        severity: critical
+        service: billing
+        business_impact: true
+      annotations:
+        summary: "Subscription payment failure"
+        description: "Payment failed for subscription {{ $labels.subscription_id }} - tenant {{ $labels.tenant_id }}"
+        runbook_url: "https://runbooks.school-erp.com/payment-failures"
+        escalate_to: "billing_team"
+    
+    - alert: PaymentGatewayDown
+      expr: school_erp_payment_gateway_up{provider="stripe"} == 0
+      for: 3m
+      labels:
+        severity: critical
+        service: payment-gateway
+        business_impact: true
+      annotations:
+        summary: "Payment gateway is down"
+        description: "Stripe payment gateway is not responding"
+        action_required: "immediate"
+    
+    - alert: HighPaymentDeclineRate
+      expr: (increase(school_erp_payment_failures_total[1h]) / increase(school_erp_payment_attempts_total[1h])) > 0.1
+      for: 10m
+      labels:
+        severity: warning
+        service: billing
+      annotations:
+        summary: "High payment decline rate"
+        description: "Payment decline rate is {{ $value | humanizePercentage }} in the last hour"
+    
+    - alert: SubscriptionExpiringWithoutRenewal
+      expr: school_erp_subscriptions_expiring_soon{days_until_expiry="7"} > 0
+      for: 1h
+      labels:
+        severity: warning
+        service: subscription
+        business_impact: true
+      annotations:
+        summary: "Subscriptions expiring without renewal"
+        description: "{{ $value }} subscriptions expiring in 7 days without renewal setup"
+
+  # === API & PERFORMANCE ALERTS ===
+  - name: api.rules
+    interval: 30s
+    rules:
+    
+    - alert: HighAPIErrorRate
+      expr: (rate(school_erp_http_requests_total{code=~"5.."}[5m]) / rate(school_erp_http_requests_total[5m])) * 100 > 5
+      for: 10m
+      labels:
+        severity: warning
+        service: api
+      annotations:
+        summary: "High API error rate"
+        description: "API error rate is {{ $value | humanizePercentage }} for tenant {{ $labels.tenant_id }}"
+    
+    - alert: HighAPIResponseTime
+      expr: histogram_quantile(0.95, rate(school_erp_http_request_duration_seconds_bucket[5m])) > 2
+      for: 10m
+      labels:
+        severity: warning
+        service: api
+      annotations:
+        summary: "High API response time"
+        description: "95th percentile response time is {{ $value }}s"
+    
+    - alert: APIServiceDown
+      expr: up{job="school-erp-api"} == 0
+      for: 3m
+      labels:
+        severity: critical
+        service: api
+      annotations:
+        summary: "API service is down"
+        description: "School ERP API service is not responding"

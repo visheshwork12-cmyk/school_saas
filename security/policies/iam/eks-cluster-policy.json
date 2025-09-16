@@ -1,0 +1,116 @@
+{
+  "Version": "2012-10-17",
+  "Statement": [
+    {
+      "Sid": "EKSClusterManagement",
+      "Effect": "Allow",
+      "Action": [
+        "eks:DescribeCluster",
+        "eks:ListClusters",
+        "eks:DescribeNodegroup",
+        "eks:ListNodegroups",
+        "eks:DescribeUpdate",
+        "eks:ListUpdates",
+        "eks:DescribeAddon",
+        "eks:ListAddons",
+        "eks:DescribeFargateProfile",
+        "eks:ListFargateProfiles"
+      ],
+      "Resource": [
+        "arn:aws:eks:*:*:cluster/school-erp-*",
+        "arn:aws:eks:*:*:nodegroup/school-erp-*/*/*",
+        "arn:aws:eks:*:*:addon/school-erp-*/*/*",
+        "arn:aws:eks:*:*:fargateprofile/school-erp-*/*/*"
+      ]
+    },
+    {
+      "Sid": "EKSServiceRoleAccess",
+      "Effect": "Allow",
+      "Action": [
+        "iam:PassRole"
+      ],
+      "Resource": [
+        "arn:aws:iam::*:role/school-erp-*-cluster-role",
+        "arn:aws:iam::*:role/school-erp-*-node-group-role",
+        "arn:aws:iam::*:role/school-erp-*-fargate-role"
+      ],
+      "Condition": {
+        "StringEquals": {
+          "iam:PassedToService": [
+            "eks.amazonaws.com",
+            "eks-nodegroup.amazonaws.com",
+            "eks-fargate-pods.amazonaws.com"
+          ]
+        }
+      }
+    },
+    {
+      "Sid": "EKSNetworkingAccess",
+      "Effect": "Allow",
+      "Action": [
+        "ec2:DescribeVpcs",
+        "ec2:DescribeSubnets",
+        "ec2:DescribeSecurityGroups",
+        "ec2:DescribeNetworkInterfaces",
+        "ec2:DescribeRouteTables",
+        "ec2:CreateNetworkInterface",
+        "ec2:DeleteNetworkInterface",
+        "ec2:ModifyNetworkInterfaceAttribute",
+        "ec2:CreateTags"
+      ],
+      "Resource": "*",
+      "Condition": {
+        "StringLike": {
+          "ec2:ResourceTag/Name": "school-erp-*"
+        }
+      }
+    },
+    {
+      "Sid": "EKSLoggingAccess",
+      "Effect": "Allow",
+      "Action": [
+        "logs:CreateLogStream",
+        "logs:PutLogEvents",
+        "logs:CreateLogGroup"
+      ],
+      "Resource": [
+        "arn:aws:logs:*:*:log-group:/aws/eks/school-erp-*"
+      ]
+    },
+    {
+      "Sid": "EKSAutoScalingAccess",
+      "Effect": "Allow",
+      "Action": [
+        "autoscaling:DescribeAutoScalingGroups",
+        "autoscaling:DescribeAutoScalingInstances",
+        "autoscaling:DescribeLaunchConfigurations",
+        "autoscaling:DescribeTags",
+        "autoscaling:SetDesiredCapacity",
+        "autoscaling:TerminateInstanceInAutoScalingGroup"
+      ],
+      "Resource": "*",
+      "Condition": {
+        "StringLike": {
+          "autoscaling:ResourceTag/Name": "school-erp-*"
+        }
+      }
+    },
+    {
+      "Sid": "EKSLoadBalancerAccess",
+      "Effect": "Allow",
+      "Action": [
+        "elasticloadbalancing:DescribeLoadBalancers",
+        "elasticloadbalancing:DescribeLoadBalancerAttributes",
+        "elasticloadbalancing:DescribeListeners",
+        "elasticloadbalancing:DescribeListenerCertificates",
+        "elasticloadbalancing:DescribeSSLPolicies",
+        "elasticloadbalancing:DescribeRules",
+        "elasticloadbalancing:DescribeTargetGroups",
+        "elasticloadbalancing:DescribeTargetGroupAttributes",
+        "elasticloadbalancing:DescribeTargetHealth",
+        "elasticloadbalancing:DescribeTags"
+      ],
+      "Resource": "*"
+    }
+  ]
+}

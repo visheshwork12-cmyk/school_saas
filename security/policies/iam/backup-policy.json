@@ -1,0 +1,157 @@
+{
+  "Version": "2012-10-17",
+  "Statement": [
+    {
+      "Sid": "BackupVaultAccess",
+      "Effect": "Allow",
+      "Action": [
+        "backup:CreateBackupVault",
+        "backup:DeleteBackupVault",
+        "backup:DescribeBackupVault",
+        "backup:ListBackupVaults",
+        "backup:PutBackupVaultAccessPolicy",
+        "backup:DeleteBackupVaultAccessPolicy",
+        "backup:GetBackupVaultAccessPolicy",
+        "backup:PutBackupVaultNotifications",
+        "backup:GetBackupVaultNotifications",
+        "backup:DeleteBackupVaultNotifications"
+      ],
+      "Resource": [
+        "arn:aws:backup:*:*:backup-vault:school-erp-*"
+      ]
+    },
+    {
+      "Sid": "BackupPlanAccess",
+      "Effect": "Allow",
+      "Action": [
+        "backup:CreateBackupPlan",
+        "backup:DeleteBackupPlan",
+        "backup:GetBackupPlan",
+        "backup:GetBackupPlanFromJSON",
+        "backup:GetBackupPlanFromTemplate",
+        "backup:ListBackupPlans",
+        "backup:UpdateBackupPlan",
+        "backup:CreateBackupSelection",
+        "backup:DeleteBackupSelection",
+        "backup:GetBackupSelection",
+        "backup:ListBackupSelections"
+      ],
+      "Resource": [
+        "arn:aws:backup:*:*:backup-plan:school-erp-*"
+      ]
+    },
+    {
+      "Sid": "BackupJobAccess",
+      "Effect": "Allow",
+      "Action": [
+        "backup:StartBackupJob",
+        "backup:StopBackupJob",
+        "backup:ListBackupJobs",
+        "backup:DescribeBackupJob",
+        "backup:StartRestoreJob",
+        "backup:DescribeRestoreJob",
+        "backup:ListRestoreJobs"
+      ],
+      "Resource": "*"
+    },
+    {
+      "Sid": "BackupRecoveryPointAccess",
+      "Effect": "Allow",
+      "Action": [
+        "backup:DeleteRecoveryPoint",
+        "backup:DescribeRecoveryPoint",
+        "backup:GetRecoveryPointRestoreMetadata",
+        "backup:ListRecoveryPointsByBackupVault",
+        "backup:ListRecoveryPointsByResource"
+      ],
+      "Resource": [
+        "arn:aws:backup:*:*:recovery-point:*"
+      ]
+    },
+    {
+      "Sid": "BackupResourceAccess",
+      "Effect": "Allow",
+      "Action": [
+        "rds:DescribeDBInstances",
+        "rds:DescribeDBClusters",
+        "rds:CreateDBSnapshot",
+        "rds:CreateDBClusterSnapshot",
+        "rds:CopyDBSnapshot",
+        "rds:CopyDBClusterSnapshot",
+        "ec2:DescribeVolumes",
+        "ec2:DescribeSnapshots",
+        "ec2:CreateSnapshot",
+        "ec2:CopySnapshot",
+        "ec2:DescribeImages",
+        "ec2:CreateImage",
+        "ec2:CopyImage",
+        "elasticfilesystem:DescribeFileSystems",
+        "elasticfilesystem:CreateBackup"
+      ],
+      "Resource": "*",
+      "Condition": {
+        "StringLike": {
+          "aws:ResourceTag/Project": "school-erp"
+        }
+      }
+    },
+    {
+      "Sid": "BackupS3Access",
+      "Effect": "Allow",
+      "Action": [
+        "s3:GetBucketVersioning",
+        "s3:GetBucketNotification",
+        "s3:PutBucketNotification",
+        "s3:GetBucketTagging",
+        "s3:GetInventoryConfiguration",
+        "s3:PutInventoryConfiguration",
+        "s3:ListBucketVersions",
+        "s3:GetBucketLocation",
+        "s3:GetObject",
+        "s3:GetObjectVersion",
+        "s3:GetObjectVersionTagging",
+        "s3:PutObject",
+        "s3:PutObjectTagging",
+        "s3:GetLifecycleConfiguration",
+        "s3:PutLifecycleConfiguration",
+        "s3:DeleteObject",
+        "s3:DeleteObjectVersion"
+      ],
+      "Resource": [
+        "arn:aws:s3:::school-erp-*-backups",
+        "arn:aws:s3:::school-erp-*-backups/*"
+      ]
+    },
+    {
+      "Sid": "BackupKMSAccess",
+      "Effect": "Allow",
+      "Action": [
+        "kms:Decrypt",
+        "kms:GenerateDataKey",
+        "kms:CreateGrant",
+        "kms:DescribeKey"
+      ],
+      "Resource": [
+        "arn:aws:kms:*:*:key/*"
+      ],
+      "Condition": {
+        "StringEquals": {
+          "kms:ViaService": [
+            "backup.*.amazonaws.com",
+            "s3.*.amazonaws.com"
+          ]
+        }
+      }
+    },
+    {
+      "Sid": "BackupTaggingAccess",
+      "Effect": "Allow",
+      "Action": [
+        "tag:GetResources",
+        "tag:TagResources",
+        "tag:UntagResources"
+      ],
+      "Resource": "*"
+    }
+  ]
+}

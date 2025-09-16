@@ -1,0 +1,38 @@
+# buildspecs/health-check.yml
+version: 0.2
+
+phases:
+  install:
+    commands:
+      - echo "Installing health check dependencies..."
+      - yum update -y
+      - yum install -y curl jq bc
+
+  pre_build:
+    commands:
+      - echo "Setting up health check environment..."
+      - chmod +x scripts/deployment/health-check.sh
+
+  build:
+    commands:
+      - echo "Running comprehensive health checks..."
+      - ./scripts/deployment/health-check.sh $TEST_ENVIRONMENT aws --url $API_ENDPOINT --timeout 300 --verbose
+      
+      - echo "Validating API endpoints..."
+      - curl -f $API_ENDPOINT/health | jq .
+      - curl -f $API_ENDPOINT/api/v1/health | jq .
+      
+      - echo "Checking database connectivity..."
+      - curl -f $API_ENDPOINT/health/database | jq .
+      
+      - echo "Checking cache connectivity..."
+      - curl -f $API_ENDPOINT/health/cache | jq .
+
+  post_build:
+    commands:
+      - echo "Health checks completed successfully"
+
+artifacts:
+  files:
+    - '/tmp/health-report-*.json'
+  name: health-check-results

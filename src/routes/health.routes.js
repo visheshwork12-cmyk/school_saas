@@ -3,12 +3,26 @@ import { Router } from "express";
 import catchAsync from "#utils/core/catchAsync.js";
 import { logger } from "#utils/core/logger.js";
 import HTTP_STATUS from "#constants/http-status.js";
+import { HealthController } from "#api/v1/shared/controllers/health.controller.js";
+import ElastiCacheRedis from '#infrastructure/cache/elasticache-redis.js';
+
 
 /**
  * @description Sets up health check routes for monitoring system health including Cloudinary
  * @returns {express.Router} The health router instance.
  */
 const healthRoutes = Router();
+
+
+// Basic health check for ALB target group
+healthRoutes.get("/", HealthController.basicHealth);
+
+// Comprehensive system status
+healthRoutes.get("/system", HealthController.systemStatus);
+
+// Kubernetes/ECS probes
+healthRoutes.get("/ready", HealthController.readinessProbe);
+healthRoutes.get("/live", HealthController.livenessProbe);
 
 /**
  * @description Check Cloudinary connection
@@ -39,7 +53,7 @@ const checkDatabaseHealth = async () => {
     // Dynamic import to avoid issues if database is not connected
     const mongoose = await import('mongoose');
     const readyState = mongoose.default.connection.readyState;
-    
+
     const states = {
       0: 'disconnected',
       1: 'connected',
@@ -77,9 +91,9 @@ healthRoutes.get(
       pid: process.pid
     };
 
-    logger.debug('Health check requested', { 
-      ip: req.ip, 
-      userAgent: req.get('User-Agent') 
+    logger.debug('Health check requested', {
+      ip: req.ip,
+      userAgent: req.get('User-Agent')
     });
 
     res.status(HTTP_STATUS.OK).json(health);
@@ -107,19 +121,19 @@ healthRoutes.get(
       uptime: process.uptime(),
       environment: process.env.NODE_ENV || 'development',
       services: {
-        database: databaseHealth.status === 'fulfilled' 
-          ? databaseHealth.value 
+        database: databaseHealth.status === 'fulfilled'
+          ? databaseHealth.value
           : { status: 'unhealthy', error: databaseHealth.reason?.message },
-        
-        cloudinary: cloudinaryHealth.status === 'fulfilled' 
-          ? cloudinaryHealth.value 
+
+        cloudinary: cloudinaryHealth.status === 'fulfilled'
+          ? cloudinaryHealth.value
           : { status: 'unhealthy', error: cloudinaryHealth.reason?.message },
-        
+
         cache: {
           status: 'healthy', // Assuming memory cache is always available
           type: process.env.REDIS_URL ? 'redis' : 'memory'
         },
-        
+
         fileUpload: {
           status: process.env.CLOUDINARY_CLOUD_NAME ? 'healthy' : 'configured',
           provider: 'cloudinary',
@@ -139,13 +153,13 @@ healthRoutes.get(
     // Determine overall health status
     const services = Object.values(systemHealth.services);
     const allHealthy = services.every(service => service.status === 'healthy');
-    
+
     if (!allHealthy) {
       systemHealth.status = 'degraded';
     }
 
     const statusCode = allHealthy ? HTTP_STATUS.OK : HTTP_STATUS.SERVICE_UNAVAILABLE;
-    
+
     res.status(statusCode).json(systemHealth);
   })
 );
@@ -159,15 +173,15 @@ healthRoutes.get(
     logger.info('Cloudinary health check requested');
 
     const cloudinaryHealth = await checkCloudinaryHealth();
-    
+
     const response = {
       service: 'cloudinary',
       timestamp: new Date().toISOString(),
       ...cloudinaryHealth
     };
 
-    const statusCode = cloudinaryHealth.status === 'healthy' 
-      ? HTTP_STATUS.OK 
+    const statusCode = cloudinaryHealth.status === 'healthy'
+      ? HTTP_STATUS.OK
       : HTTP_STATUS.SERVICE_UNAVAILABLE;
 
     res.status(statusCode).json(response);
@@ -183,7 +197,7 @@ healthRoutes.get(
     logger.info('File upload service health check requested');
 
     const cloudinaryHealth = await checkCloudinaryHealth();
-    
+
     const fileServiceHealth = {
       service: 'file-upload',
       timestamp: new Date().toISOString(),
@@ -211,14 +225,73 @@ healthRoutes.get(
       }
     };
 
-    const statusCode = cloudinaryHealth.status === 'healthy' 
-      ? HTTP_STATUS.OK 
+    const statusCode = cloudinaryHealth.status === 'healthy'
+      ? HTTP_STATUS.OK
       : HTTP_STATUS.SERVICE_UNAVAILABLE;
 
     res.status(statusCode).json(fileServiceHealth);
   })
 );
 
+
+healthRoutes.get('/cloudwatch', async (req, res) => {
+  try {
+    const healthStatus = await cloudWatchService.getHealthStatus();
+
+    if (healthStatus.status === 'healthy') {
+      res.status(200).json({
+        success: true,
+        service: 'CloudWatch',
+        status: healthStatus,
+        timestamp: new Date().toISOString(),
+      });
+    } else {
+      res.status(503).json({
+        success: false,
+        service: 'CloudWatch',
+        status: healthStatus,
+        timestamp: new Date().toISOString(),
+      });
+    }
+  } catch (error) {
+    res.status(503).json({
+      success: false,
+      service: 'CloudWatch',
+      error: error.message,
+      timestamp: new Date().toISOString(),
+    });
+  }
+});
+
+
+
+healthRoutes.get('/elasticache', async (req, res) => {
+  try {
+    const health = await ElastiCacheRedis.healthCheck();
+    
+    const status = health.status === 'healthy' ? 200 : 503;
+    
+    res.status(status).json({
+      service: 'ElastiCache Redis',
+      ...health,
+      timestamp: new Date().toISOString()
+    });
+  } catch (error) {
+    res.status(503).json({
+      service: 'ElastiCache Redis',
+      status: 'unhealthy',
+      error: error.message,
+      timestamp: new Date().toISOString()
+    });
+  }
+});
+
+
+
+
 logger.info("Health routes configured with Cloudinary integration.");
+
+
+
 
 export default healthRoutes;

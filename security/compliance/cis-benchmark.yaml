@@ -1,0 +1,155 @@
+# CIS Kubernetes Benchmark Configuration for School ERP SaaS
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: cis-benchmark-config
+  namespace: school-erp-security
+  labels:
+    app: school-erp
+    component: security
+    compliance: cis-benchmark
+data:
+  cis_level: "2"
+  benchmark_version: "1.8"
+  description: "CIS Kubernetes Benchmark controls for School ERP SaaS platform"
+  
+  # Control Plane Security Configuration
+  control_plane: |
+    # 1.1 Master Node Configuration Files
+    apiserver_pod_file_permissions: "644"
+    apiserver_pod_file_ownership: "root:root"
+    controller_manager_pod_file_permissions: "644"
+    scheduler_pod_file_permissions: "644"
+    etcd_pod_file_permissions: "644"
+    
+    # 1.2 API Server Configuration
+    anonymous_auth: "false"
+    basic_auth_file: "disabled"
+    token_auth_file: "disabled"
+    kubelet_https: "true"
+    kubelet_client_certificate: "required"
+    kubelet_client_key: "required"
+    etcd_certfile: "required"
+    etcd_keyfile: "required"
+    admission_control_plugins: "AlwaysPullImages,ServiceAccount,NamespaceLifecycle,NodeRestriction,LimitRanger,ResourceQuota,MutatingAdmissionWebhook,ValidatingAdmissionWebhook"
+    
+    # 1.3 Controller Manager Configuration
+    terminated_pod_gc_threshold: "12500"
+    profiling: "false"
+    use_service_account_credentials: "true"
+    
+    # 1.4 Scheduler Configuration  
+    scheduler_profiling: "false"
+
+  # Worker Node Security Configuration
+  worker_node: |
+    # 4.1 Worker Node Configuration Files
+    kubelet_service_file_permissions: "644"
+    kube_proxy_service_file_permissions: "644"
+    kubelet_config_file_permissions: "644"
+    
+    # 4.2 Kubelet Configuration
+    anonymous_auth_kubelet: "false"
+    authorization_mode: "Webhook"
+    client_ca_file: "required"
+    read_only_port: "0"
+    streaming_connection_idle_timeout: "4h"
+    protect_kernel_defaults: "true"
+    make_iptables_util_chains: "true"
+    event_qps: "0"
+    rotate_certificates: "true"
+    rotate_server_certificates: "true"
+
+  # Network Policies
+  network_policies: |
+    # 5.1 RBAC and Service Accounts
+    default_service_account: "automount_disabled"
+    service_account_tokens: "least_privilege"
+    
+    # 5.2 Pod Security Policies
+    privileged_containers: "false"
+    host_network: "false"
+    host_port: "false"
+    host_ipc: "false"
+    host_pid: "false"
+    security_context_constraints: "restricted"
+    
+    # 5.3 Network Segmentation
+    network_policies_enabled: "true"
+    default_deny_all: "true"
+    ingress_egress_rules: "explicit"
+
+  # Monitoring and Logging
+  monitoring: |
+    # Audit Configuration
+    audit_logging: "enabled"
+    audit_log_maxage: "30"
+    audit_log_maxbackup: "10"
+    audit_log_maxsize: "100"
+    
+    # Security Monitoring
+    falco_enabled: "true"
+    security_benchmarks: "continuous"
+    compliance_reporting: "enabled"
+
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: cis-remediation-scripts
+  namespace: school-erp-security
+data:
+  remediate.sh: |
+    #!/bin/bash
+    # CIS Kubernetes Benchmark Remediation Script
+    set -euo pipefail
+    
+    echo "Starting CIS Kubernetes Benchmark remediation..."
+    
+    # Fix file permissions
+    chmod 644 /etc/kubernetes/manifests/kube-apiserver.yaml
+    chmod 644 /etc/kubernetes/manifests/kube-controller-manager.yaml
+    chmod 644 /etc/kubernetes/manifests/kube-scheduler.yaml
+    
+    # Apply network policies
+    kubectl apply -f - <<EOF
+    apiVersion: networking.k8s.io/v1
+    kind: NetworkPolicy
+    metadata:
+      name: default-deny-all
+      namespace: school-erp
+    spec:
+      podSelector: {}
+      policyTypes:
+      - Ingress
+      - Egress
+    EOF
+    
+    echo "CIS remediation completed successfully"
+
+---
+apiVersion: batch/v1
+kind: CronJob
+metadata:
+  name: cis-benchmark-scan
+  namespace: school-erp-security
+spec:
+  schedule: "0 2 * * *"  # Daily at 2 AM
+  jobTemplate:
+    spec:
+      template:
+        spec:
+          containers:
+          - name: kube-bench
+            image: aquasec/kube-bench:latest
+            command: ["kube-bench"]
+            args: ["--version", "1.8", "--json", "--outputfile", "/tmp/results.json"]
+            volumeMounts:
+            - name: results
+              mountPath: /tmp
+          volumes:
+          - name: results
+            hostPath:
+              path: /var/log/kube-bench
+          restartPolicy: OnFailure

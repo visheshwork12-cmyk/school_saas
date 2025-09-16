@@ -1,0 +1,53 @@
+# .github/workflows/codepipeline-trigger.yml
+name: 🔄 CodePipeline Integration
+
+on:
+  push:
+    branches: [main, develop, staging]
+  pull_request:
+    branches: [main, develop]
+    types: [opened, synchronize, closed]
+
+jobs:
+  notify-pipeline:
+    name: 📢 Notify CodePipeline
+    runs-on: ubuntu-latest
+    if: github.event.action != 'closed' || github.event.pull_request.merged == true
+    
+    steps:
+      - name: 📥 Checkout Code
+        uses: actions/checkout@v4
+
+      - name: 🔧 Configure AWS Credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: us-east-1
+
+      - name: 🚀 Trigger CodePipeline
+        run: |
+          PIPELINE_NAME="school-erp-${{ github.ref_name }}-pipeline"
+          
+          # Check if pipeline exists
+          if aws codepipeline get-pipeline --name "$PIPELINE_NAME" >/dev/null 2>&1; then
+            echo "🚀 Triggering pipeline: $PIPELINE_NAME"
+            
+            EXECUTION_ID=$(aws codepipeline start-pipeline-execution \
+              --name "$PIPELINE_NAME" \
+              --query 'pipelineExecutionId' \
+              --output text)
+            
+            echo "✅ Pipeline triggered with execution ID: $EXECUTION_ID"
+            echo "pipeline_execution_id=$EXECUTION_ID" >> $GITHUB_OUTPUT
+          else
+            echo "⚠️ CodePipeline $PIPELINE_NAME not found, skipping trigger"
+          fi
+
+      - name: 📊 Update Status
+        if: github.event_name == 'pull_request'
+        run: |
+          # Update PR status with pipeline link
+          gh pr comment ${{ github.event.number }} --body "🚀 CodePipeline triggered for this PR. [View Progress](https://console.aws.amazon.com/codesuite/codepipeline/pipelines/$PIPELINE_NAME/view)"
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

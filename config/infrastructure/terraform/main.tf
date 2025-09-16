@@ -350,3 +350,183 @@ output "s3_bucket_names" {
   description = "S3 bucket names"
   value       = module.s3.bucket_names
 }
+
+
+
+resource "aws_ecs_cluster" "school_erp_cluster" {
+  name = "school-erp-cluster"
+}
+
+resource "aws_ecs_service" "app" {
+  name            = "school-erp-service"
+  cluster         = aws_ecs_cluster.school_erp_cluster.id
+  task_definition = aws_ecs_task_definition.app.arn
+  desired_count   = 2
+  launch_type     = "FARGATE"
+  network_configuration {
+    ...
+  }
+}
+
+resource "aws_ecs_task_definition" "app" {
+  family                   = "school-erp-task"
+  network_mode             = "awsvpc"
+  container_definitions    = file("school-erp-container.json")
+  requires_compatibilities = ["FARGATE"]
+  ...
+}
+
+
+
+# CloudFront Distribution
+resource "aws_cloudfront_distribution" "school_erp_cdn" {
+  origin {
+    domain_name = aws_s3_bucket.static_assets.bucket_regional_domain_name
+    origin_id   = "S3-${aws_s3_bucket.static_assets.id}"
+    
+    s3_origin_config {
+      origin_access_identity = aws_cloudfront_origin_access_identity.oai.cloudfront_access_identity_path
+    }
+  }
+  
+  # Policy file se policy attach karo
+  depends_on = [
+    data.aws_iam_policy_document.cloudfront_s3_policy
+  ]
+}
+
+# Policy document ko file se load karo
+data "aws_iam_policy_document" "cloudfront_s3_policy" {
+  source_json = file("${path.root}/../../../security/policies/s3/s3-cloudfront-access-policy.json")
+}
+
+
+# main.tf me EKS module ka usage
+module "eks" {
+  source = "./modules/eks"
+
+  name_prefix = local.name_prefix
+  environment = var.environment
+
+  # Cluster configuration
+  cluster_version = var.eks_cluster_version
+  
+  # Network configuration
+  vpc_id                     = module.vpc.vpc_id
+  control_plane_subnet_ids   = module.vpc.private_subnet_ids
+  node_subnet_ids           = module.vpc.private_subnet_ids
+  cluster_security_group_ids = [module.security_groups.eks_cluster_security_group_id]
+
+  # Node groups
+  node_groups = var.eks_node_groups
+
+  # Cluster add-ons
+  cluster_addons = var.eks_cluster_addons
+
+  tags = local.common_tags
+}
+
+
+
+# infrastructure/terraform/main.tf
+
+module "cloudwatch" {
+  source = "./modules/cloudwatch"
+  
+  name_prefix  = local.name_prefix
+  environment  = var.environment
+  
+  # Resource Configuration
+  vpc_id                = module.vpc.vpc_id
+  ecs_cluster_name      = module.ecs.cluster_name
+  ecs_cluster_arn       = module.ecs.cluster_arn
+  ecs_service_name      = module.ecs.service_name
+  rds_instance_id       = module.rds.instance_id
+  redis_cluster_id      = module.redis.cluster_id
+  alb_arn              = module.alb.load_balancer_arn
+  alb_target_group_arn = module.alb.target_group_arn
+  
+  # Monitoring Configuration
+  enable_detailed_monitoring = var.environment == "production"
+  enable_composite_alarms    = true
+  enable_event_rules        = true
+  enable_insights_queries   = true
+  enable_dashboard          = true
+  
+  # Thresholds
+  cpu_threshold_high      = var.environment == "production" ? 70 : 80
+  memory_threshold_high   = var.environment == "production" ? 75 : 85
+  response_time_threshold = var.environment == "production" ? 1.5 : 2.0
+  
+  # Notifications
+  notification_endpoints = var.alert_email_addresses
+  slack_webhook_url     = var.slack_webhook_url
+  
+  # Logging
+  log_retention_days = var.environment == "production" ? 30 : 14
+  enable_log_encryption = var.environment == "production"
+  
+  tags = local.common_tags
+}
+
+
+
+# infrastructure/terraform/main.tf
+
+module "backup" {
+  source = "./modules/backup"
+
+  name_prefix  = local.name_prefix
+  environment  = var.environment
+  
+  # Basic Configuration
+  backup_retention_days     = var.environment == "production" ? 90 : 30
+  backup_window_start_hour = 2
+  
+  # Cross-region backup for production
+  enable_cross_region_backup   = var.environment == "production"
+  cross_region_backup_region   = var.environment == "production" ? "us-west-2" : null
+  
+  # Resource ARNs for backup
+  rds_instance_arns     = [module.rds.instance_arn]
+  efs_file_system_arns  = [] # Add EFS ARNs if you have them
+  ebs_volume_arns       = [] # Add EBS ARNs if needed
+  
+  # MongoDB backup
+  enable_mongodb_backup = true
+  mongodb_uri          = var.mongodb_uri
+  
+  # Monitoring and notifications
+  enable_backup_notifications    = true
+  notification_email_addresses  = var.backup_notification_emails
+  enable_backup_monitoring      = true
+  
+  # Disaster recovery configuration
+  disaster_recovery_tier         = var.environment == "production" ? "premium" : "standard"
+  recovery_time_objective_hours  = var.environment == "production" ? 2 : 4
+  recovery_point_objective_hours = var.environment == "production" ? 1 : 2
+  
+  # Security
+  enable_backup_audit_logging = true
+  
+  # Cost optimization
+  enable_backup_cost_optimization = true
+  backup_cost_allocation_tags = {
+    CostCenter = "Infrastructure"
+    Project    = "SchoolERP"
+  }
+
+  # Provider configuration for cross-region
+  providers = {
+    aws.backup_region = aws.backup_region
+  }
+
+  tags = local.common_tags
+}
+
+# Provider for cross-region backup (if needed)
+provider "aws" {
+  alias  = "backup_region"
+  region = "us-west-2"
+}
+

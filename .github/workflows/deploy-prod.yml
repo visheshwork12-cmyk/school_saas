@@ -1,0 +1,5 @@
+aws ecr get-login-password --region us-east-1 | \
+ docker login --username AWS --password-stdin <your-account-id>.dkr.ecr.us-east-1.amazonaws.com
+docker build -t school-erp-app:latest .
+docker tag school-erp-app:latest <your-ecr-url>/school-erp-app:latest
+docker push <your-ecr-url>/school-erp-app:latest

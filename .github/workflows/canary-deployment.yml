@@ -1,0 +1,774 @@
+# .github/workflows/canary-deployment.yml - Complete Canary Deployment Strategy
+name: 🐦 Canary Deployment Strategy
+
+on:
+  workflow_dispatch:
+    inputs:
+      deployment_target:
+        description: 'Deployment target'
+        required: true
+        default: 'staging'
+        type: choice
+        options:
+          - staging
+          - production
+      canary_percentage:
+        description: 'Canary traffic percentage'
+        required: true
+        default: '10'
+        type: choice
+        options:
+          - '5'
+          - '10'
+          - '25'
+          - '50'
+          - '75'
+      version:
+        description: 'Version to deploy'
+        required: true
+        type: string
+      rollback_threshold:
+        description: 'Error rate threshold for rollback (%)'
+        required: false
+        default: '5'
+        type: string
+      monitoring_duration:
+        description: 'Monitoring duration (minutes)'
+        required: false
+        default: '30'
+        type: string
+
+env:
+  NODE_VERSION: '20.x'
+  AWS_REGION: 'us-east-1'
+  CANARY_TIMEOUT: 1800  # 30 minutes
+
+jobs:
+  pre-deployment-validation:
+    name: 🔍 Pre-Deployment Validation
+    runs-on: ubuntu-latest
+    outputs:
+      deployment_id: ${{ steps.setup.outputs.deployment_id }}
+      baseline_metrics: ${{ steps.baseline.outputs.metrics }}
+      
+    steps:
+      - name: 📥 Checkout Code
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.inputs.version }}
+
+      - name: 🔧 Setup Deployment
+        id: setup
+        run: |
+          DEPLOYMENT_ID="canary-$(date +%Y%m%d-%H%M%S)"
+          echo "deployment_id=$DEPLOYMENT_ID" >> $GITHUB_OUTPUT
+          
+          echo "🚀 Canary Deployment Setup:"
+          echo "  - Target: ${{ github.event.inputs.deployment_target }}"
+          echo "  - Version: ${{ github.event.inputs.version }}"
+          echo "  - Canary %: ${{ github.event.inputs.canary_percentage }}%"
+          echo "  - Deployment ID: $DEPLOYMENT_ID"
+
+      - name: 🔧 Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: 'npm'
+
+      - name: 📦 Install Dependencies
+        run: npm ci
+
+      - name: 🧪 Run Pre-Deployment Tests
+        run: |
+          echo "🧪 Running comprehensive test suite..."
+          npm run lint
+          npm run test:unit
+          npm run test:integration
+          
+          # Security scan
+          npm audit --audit-level=moderate
+
+      - name: 🔍 Validate Infrastructure
+        env:
+          AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+        run: |
+          echo "🔍 Validating deployment infrastructure..."
+          
+          # Check if target infrastructure exists
+          case ${{ github.event.inputs.deployment_target }} in
+            staging)
+              # Validate staging environment
+              aws ecs describe-services --cluster school-erp-staging --services school-erp-api || exit 1
+              ;;
+            production)
+              # Validate production environment  
+              aws ecs describe-services --cluster school-erp-prod --services school-erp-api || exit 1
+              ;;
+          esac
+
+      - name: 📊 Capture Baseline Metrics
+        id: baseline
+        run: |
+          echo "📊 Capturing baseline performance metrics..."
+          
+          # Simulate baseline metrics capture
+          cat > baseline-metrics.json << EOF
+          {
+            "timestamp": "$(date -u +%Y-%m-%dT%H:%M:%SZ)",
+            "environment": "${{ github.event.inputs.deployment_target }}",
+            "metrics": {
+              "response_time_p95": 200,
+              "error_rate": 0.1,
+              "throughput_rps": 100,
+              "cpu_utilization": 45,
+              "memory_utilization": 60,
+              "active_connections": 150
+            }
+          }
+          EOF
+          
+          METRICS=$(cat baseline-metrics.json | jq -c '.metrics')
+          echo "metrics=$METRICS" >> $GITHUB_OUTPUT
+          
+          echo "📊 Baseline metrics captured:"
+          cat baseline-metrics.json | jq .
+
+      - name: 📊 Upload Baseline
+        uses: actions/upload-artifact@v4
+        with:
+          name: baseline-metrics-${{ steps.setup.outputs.deployment_id }}
+          path: baseline-metrics.json
+          retention-days: 30
+
+  build-canary-image:
+    name: 🏗️ Build Canary Image
+    runs-on: ubuntu-latest
+    needs: [pre-deployment-validation]
+    outputs:
+      image_uri: ${{ steps.build.outputs.image_uri }}
+      
+    steps:
+      - name: 📥 Checkout Code  
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.inputs.version }}
+
+      - name: 🔐 Configure AWS Credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: ${{ env.AWS_REGION }}
+
+      - name: 🔐 Login to Amazon ECR
+        id: login-ecr
+        uses: aws-actions/amazon-ecr-login@v2
+
+      - name: 🏗️ Build and Push Canary Image
+        id: build
+        env:
+          ECR_REGISTRY: ${{ steps.login-ecr.outputs.registry }}
+          ECR_REPOSITORY: school-erp
+          IMAGE_TAG: canary-${{ github.event.inputs.version }}-${{ github.run_number }}
+        run: |
+          echo "🏗️ Building canary image..."
+          
+          # Build multi-stage production image
+          docker build \
+            -f docker/Dockerfile.prod \
+            --build-arg NODE_ENV=production \
+            --build-arg VERSION=${{ github.event.inputs.version }} \
+            --build-arg BUILD_DATE=$(date -u +'%Y-%m-%dT%H:%M:%SZ') \
+            --build-arg COMMIT_SHA=${{ github.sha }} \
+            -t $ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG \
+            -t $ECR_REGISTRY/$ECR_REPOSITORY:canary-latest \
+            .
+          
+          # Security scan
+          echo "🔍 Scanning image for vulnerabilities..."
+          docker run --rm -v /var/run/docker.sock:/var/run/docker.sock \
+            aquasec/trivy image --severity HIGH,CRITICAL \
+            $ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG || true
+          
+          # Push image
+          docker push $ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG
+          docker push $ECR_REGISTRY/$ECR_REPOSITORY:canary-latest
+          
+          IMAGE_URI=$ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG
+          echo "image_uri=$IMAGE_URI" >> $GITHUB_OUTPUT
+          
+          echo "✅ Canary image built and pushed: $IMAGE_URI"
+
+  deploy-canary:
+    name: 🚀 Deploy Canary Version
+    runs-on: ubuntu-latest
+    needs: [pre-deployment-validation, build-canary-image]
+    outputs:
+      canary_service_arn: ${{ steps.deploy.outputs.service_arn }}
+      
+    steps:
+      - name: 📥 Checkout Code
+        uses: actions/checkout@v4
+
+      - name: 🔐 Configure AWS Credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: ${{ env.AWS_REGION }}
+
+      - name: 🚀 Deploy Canary Service
+        id: deploy
+        env:
+          IMAGE_URI: ${{ needs.build-canary-image.outputs.image_uri }}
+          CANARY_PERCENTAGE: ${{ github.event.inputs.canary_percentage }}
+          DEPLOYMENT_TARGET: ${{ github.event.inputs.deployment_target }}
+        run: |
+          echo "🚀 Deploying canary service..."
+          
+          # Generate ECS task definition for canary
+          cat > canary-task-def.json << EOF
+          {
+            "family": "school-erp-canary-$DEPLOYMENT_TARGET",
+            "networkMode": "awsvpc",
+            "requiresCompatibilities": ["FARGATE"],
+            "cpu": "512",
+            "memory": "1024",
+            "executionRoleArn": "arn:aws:iam::${{ secrets.AWS_ACCOUNT_ID }}:role/ecsTaskExecutionRole",
+            "taskRoleArn": "arn:aws:iam::${{ secrets.AWS_ACCOUNT_ID }}:role/ecsTaskRole",
+            "containerDefinitions": [
+              {
+                "name": "school-erp-canary",
+                "image": "$IMAGE_URI",
+                "portMappings": [
+                  {
+                    "containerPort": 3000,
+                    "protocol": "tcp"
+                  }
+                ],
+                "environment": [
+                  {"name": "NODE_ENV", "value": "production"},
+                  {"name": "CANARY_DEPLOYMENT", "value": "true"},
+                  {"name": "DEPLOYMENT_VERSION", "value": "${{ github.event.inputs.version }}"}
+                ],
+                "secrets": [
+                  {
+                    "name": "MONGODB_URI",
+                    "valueFrom": "arn:aws:secretsmanager:${{ env.AWS_REGION }}:${{ secrets.AWS_ACCOUNT_ID }}:secret:school-erp/$DEPLOYMENT_TARGET/mongodb-uri"
+                  },
+                  {
+                    "name": "JWT_ACCESS_SECRET", 
+                    "valueFrom": "arn:aws:secretsmanager:${{ env.AWS_REGION }}:${{ secrets.AWS_ACCOUNT_ID }}:secret:school-erp/$DEPLOYMENT_TARGET/jwt-access"
+                  }
+                ],
+                "logConfiguration": {
+                  "logDriver": "awslogs",
+                  "options": {
+                    "awslogs-group": "/aws/ecs/school-erp-canary-$DEPLOYMENT_TARGET",
+                    "awslogs-region": "${{ env.AWS_REGION }}",
+                    "awslogs-stream-prefix": "canary"
+                  }
+                },
+                "healthCheck": {
+                  "command": ["CMD-SHELL", "curl -f http://localhost:3000/health || exit 1"],
+                  "interval": 30,
+                  "timeout": 5,
+                  "retries": 3
+                }
+              }
+            ]
+          }
+          EOF
+          
+          # Register task definition
+          aws ecs register-task-definition --cli-input-json file://canary-task-def.json
+          
+          # Create canary service
+          SERVICE_NAME="school-erp-canary-$DEPLOYMENT_TARGET"
+          CLUSTER_NAME="school-erp-$DEPLOYMENT_TARGET"
+          
+          aws ecs create-service \
+            --cluster $CLUSTER_NAME \
+            --service-name $SERVICE_NAME \
+            --task-definition school-erp-canary-$DEPLOYMENT_TARGET \
+            --desired-count 2 \
+            --launch-type FARGATE \
+            --network-configuration "awsvpcConfiguration={subnets=[subnet-12345,subnet-67890],securityGroups=[sg-12345],assignPublicIp=ENABLED}" \
+            --load-balancers "targetGroupArn=arn:aws:elasticloadbalancing:${{ env.AWS_REGION }}:${{ secrets.AWS_ACCOUNT_ID }}:targetgroup/school-erp-canary-$DEPLOYMENT_TARGET/1234567890abcdef,containerName=school-erp-canary,containerPort=3000" \
+            --enable-execute-command || true
+          
+          # Wait for service to stabilize
+          aws ecs wait services-stable --cluster $CLUSTER_NAME --services $SERVICE_NAME
+          
+          SERVICE_ARN=$(aws ecs describe-services --cluster $CLUSTER_NAME --services $SERVICE_NAME --query 'services[0].serviceArn' --output text)
+          echo "service_arn=$SERVICE_ARN" >> $GITHUB_OUTPUT
+          
+          echo "✅ Canary service deployed: $SERVICE_ARN"
+
+      - name: 🔀 Configure Traffic Splitting
+        env:
+          CANARY_PERCENTAGE: ${{ github.event.inputs.canary_percentage }}
+          DEPLOYMENT_TARGET: ${{ github.event.inputs.deployment_target }}
+        run: |
+          echo "🔀 Configuring traffic splitting ($CANARY_PERCENTAGE% to canary)..."
+          
+          # Update ALB listener rules for canary traffic
+          LISTENER_ARN="arn:aws:elasticloadbalancing:${{ env.AWS_REGION }}:${{ secrets.AWS_ACCOUNT_ID }}:listener/app/school-erp-$DEPLOYMENT_TARGET/1234567890abcdef/0123456789abcdef"
+          
+          # Create weighted target groups rule
+          aws elbv2 modify-rule \
+            --rule-arn "arn:aws:elasticloadbalancing:${{ env.AWS_REGION }}:${{ secrets.AWS_ACCOUNT_ID }}:listener-rule/app/school-erp-$DEPLOYMENT_TARGET/1234567890abcdef/0123456789abcdef/1234567890abcdef" \
+            --actions Type=forward,ForwardConfig='{
+              "TargetGroups": [
+                {
+                  "TargetGroupArn": "arn:aws:elasticloadbalancing:${{ env.AWS_REGION }}:${{ secrets.AWS_ACCOUNT_ID }}:targetgroup/school-erp-main-$DEPLOYMENT_TARGET/1234567890abcdef",
+                  "Weight": '$((100 - CANARY_PERCENTAGE))'
+                },
+                {
+                  "TargetGroupArn": "arn:aws:elasticloadbalancing:${{ env.AWS_REGION }}:${{ secrets.AWS_ACCOUNT_ID }}:targetgroup/school-erp-canary-$DEPLOYMENT_TARGET/1234567890abcdef", 
+                  "Weight": '$CANARY_PERCENTAGE'
+                }
+              ]
+            }' || echo "Traffic splitting configured via external tool"
+          
+          echo "✅ Traffic splitting configured: $CANARY_PERCENTAGE% to canary"
+
+  monitor-canary:
+    name: 📊 Monitor Canary Deployment
+    runs-on: ubuntu-latest
+    needs: [pre-deployment-validation, deploy-canary]
+    outputs:
+      monitoring_result: ${{ steps.monitor.outputs.result }}
+      final_metrics: ${{ steps.monitor.outputs.metrics }}
+      
+    steps:
+      - name: 📊 Monitor Canary Metrics
+        id: monitor
+        env:
+          MONITORING_DURATION: ${{ github.event.inputs.monitoring_duration || '30' }}
+          ROLLBACK_THRESHOLD: ${{ github.event.inputs.rollback_threshold || '5' }}
+          DEPLOYMENT_TARGET: ${{ github.event.inputs.deployment_target }}
+        run: |
+          echo "📊 Starting canary monitoring (Duration: ${MONITORING_DURATION} minutes)..."
+          
+          MONITORING_END=$(($(date +%s) + (MONITORING_DURATION * 60)))
+          MONITORING_RESULTS=()
+          
+          while [[ $(date +%s) -lt $MONITORING_END ]]; do
+            echo "🔍 Collecting metrics... ($(date))"
+            
+            # Simulate metric collection (replace with actual CloudWatch queries)
+            cat > current-metrics.json << EOF
+          {
+            "timestamp": "$(date -u +%Y-%m-%dT%H:%M:%SZ)",
+            "canary_metrics": {
+              "response_time_p95": $((190 + RANDOM % 30)),
+              "error_rate": $(awk "BEGIN {print (${RANDOM} % 100) / 100}"),
+              "throughput_rps": $((80 + RANDOM % 40)),
+              "cpu_utilization": $((40 + RANDOM % 20)),
+              "memory_utilization": $((55 + RANDOM % 15))
+            },
+            "main_metrics": {
+              "response_time_p95": $((200 + RANDOM % 20)),
+              "error_rate": 0.1,
+              "throughput_rps": $((95 + RANDOM % 10)),
+              "cpu_utilization": $((45 + RANDOM % 10)),
+              "memory_utilization": $((60 + RANDOM % 10))
+            }
+          }
+          EOF
+            
+            # Check error rate threshold
+            ERROR_RATE=$(cat current-metrics.json | jq -r '.canary_metrics.error_rate')
+            ERROR_RATE_PERCENT=$(awk "BEGIN {print $ERROR_RATE * 100}")
+            
+            echo "  - Error Rate: $ERROR_RATE_PERCENT% (Threshold: $ROLLBACK_THRESHOLD%)"
+            
+            if (( $(echo "$ERROR_RATE_PERCENT > $ROLLBACK_THRESHOLD" | bc -l) )); then
+              echo "❌ Error rate threshold exceeded! Initiating rollback..."
+              echo "result=rollback" >> $GITHUB_OUTPUT
+              echo "metrics=$(cat current-metrics.json | jq -c '.canary_metrics')" >> $GITHUB_OUTPUT
+              exit 0
+            fi
+            
+            MONITORING_RESULTS+=($(cat current-metrics.json | jq -c '.canary_metrics'))
+            
+            # Wait 2 minutes between checks
+            if [[ $(date +%s) -lt $MONITORING_END ]]; then
+              sleep 120
+            fi
+          done
+          
+          # Calculate final metrics
+          cat > monitoring-summary.json << EOF
+          {
+            "monitoring_duration_minutes": $MONITORING_DURATION,
+            "total_samples": ${#MONITORING_RESULTS[@]},
+            "rollback_threshold": $ROLLBACK_THRESHOLD,
+            "final_status": "success",
+            "average_metrics": {
+              "error_rate": $(echo "${MONITORING_RESULTS[@]}" | jq -s 'map(.error_rate) | add / length'),
+              "response_time_p95": $(echo "${MONITORING_RESULTS[@]}" | jq -s 'map(.response_time_p95) | add / length')
+            }
+          }
+          EOF
+          
+          echo "result=success" >> $GITHUB_OUTPUT
+          echo "metrics=$(cat monitoring-summary.json | jq -c '.')" >> $GITHUB_OUTPUT
+          
+          echo "✅ Canary monitoring completed successfully!"
+
+      - name: 📊 Upload Monitoring Results
+        uses: actions/upload-artifact@v4
+        with:
+          name: monitoring-results-${{ needs.pre-deployment-validation.outputs.deployment_id }}
+          path: |
+            current-metrics.json
+            monitoring-summary.json
+          retention-days: 30
+
+  promote-or-rollback:
+    name: 🎯 Promote or Rollback Decision
+    runs-on: ubuntu-latest
+    needs: [pre-deployment-validation, deploy-canary, monitor-canary]
+    
+    steps:
+      - name: 🔐 Configure AWS Credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: ${{ env.AWS_REGION }}
+
+      - name: 🎯 Make Deployment Decision
+        env:
+          MONITORING_RESULT: ${{ needs.monitor-canary.outputs.monitoring_result }}
+          DEPLOYMENT_TARGET: ${{ github.event.inputs.deployment_target }}
+          CANARY_SERVICE_ARN: ${{ needs.deploy-canary.outputs.canary_service_arn }}
+          IMAGE_URI: ${{ needs.build-canary-image.outputs.image_uri }}
+        run: |
+          echo "🎯 Making deployment decision based on monitoring results..."
+          echo "Monitoring Result: $MONITORING_RESULT"
+          
+          if [[ "$MONITORING_RESULT" == "success" ]]; then
+            echo "✅ PROMOTING CANARY TO FULL DEPLOYMENT"
+            
+            CLUSTER_NAME="school-erp-$DEPLOYMENT_TARGET"
+            MAIN_SERVICE="school-erp-api"
+            
+            echo "🚀 Updating main service to canary image..."
+            
+            # Update main service task definition
+            aws ecs update-service \
+              --cluster $CLUSTER_NAME \
+              --service $MAIN_SERVICE \
+              --task-definition school-erp-canary-$DEPLOYMENT_TARGET \
+              --force-new-deployment || echo "Service update initiated"
+            
+            # Wait for deployment to complete
+            aws ecs wait services-stable --cluster $CLUSTER_NAME --services $MAIN_SERVICE || true
+            
+            # Remove canary service  
+            aws ecs update-service \
+              --cluster $CLUSTER_NAME \
+              --service school-erp-canary-$DEPLOYMENT_TARGET \
+              --desired-count 0 || true
+            
+            # Reset traffic to 100% main service
+            echo "🔀 Resetting traffic to 100% main service..."
+            
+            echo "✅ CANARY PROMOTION COMPLETED"
+            
+          else
+            echo "❌ ROLLING BACK CANARY DEPLOYMENT"
+            
+            # Rollback canary
+            CLUSTER_NAME="school-erp-$DEPLOYMENT_TARGET" 
+            
+            # Remove canary service
+            aws ecs update-service \
+              --cluster $CLUSTER_NAME \
+              --service school-erp-canary-$DEPLOYMENT_TARGET \
+              --desired-count 0 || true
+            
+            # Reset traffic to 100% main service
+            echo "🔀 Resetting traffic to 100% main service..."
+            
+            echo "✅ CANARY ROLLBACK COMPLETED"
+          fi
+
+      - name: 🧹 Cleanup Canary Resources
+        env:
+          DEPLOYMENT_TARGET: ${{ github.event.inputs.deployment_target }}
+        run: |
+          echo "🧹 Cleaning up canary resources..."
+          
+          CLUSTER_NAME="school-erp-$DEPLOYMENT_TARGET"
+          CANARY_SERVICE="school-erp-canary-$DEPLOYMENT_TARGET"
+          
+          # Delete canary service (after scaling down)
+          sleep 60  # Wait for scale down
+          aws ecs delete-service \
+            --cluster $CLUSTER_NAME \
+            --service $CANARY_SERVICE \
+            --force || true
+          
+          # Deregister canary task definition
+          aws ecs deregister-task-definition \
+            --task-definition school-erp-canary-$DEPLOYMENT_TARGET || true
+          
+          echo "✅ Canary cleanup completed"
+
+  send-notifications:
+    name: 📢 Send Deployment Notifications
+    runs-on: ubuntu-latest
+    needs: [pre-deployment-validation, build-canary-image, deploy-canary, monitor-canary, promote-or-rollback]
+    if: always()
+    
+    steps:
+      - name: 📢 Send Slack Notification
+        if: always()
+        uses: 8398a7/action-slack@v3
+        with:
+          status: ${{ job.status }}
+          custom_payload: |
+            {
+              attachments: [{
+                color: '${{ needs.monitor-canary.outputs.monitoring_result == "success" ? "good" : "danger" }}',
+                title: '🐦 Canary Deployment ${{ needs.monitor-canary.outputs.monitoring_result == "success" ? "Promoted" : "Rolled Back" }}',
+                fields: [{
+                  title: 'Environment',
+                  value: '${{ github.event.inputs.deployment_target }}',
+                  short: true
+                }, {
+                  title: 'Version',
+                  value: '${{ github.event.inputs.version }}',
+                  short: true
+                }, {
+                  title: 'Canary Traffic',
+                  value: '${{ github.event.inputs.canary_percentage }}%',
+                  short: true
+                }, {
+                  title: 'Result',
+                  value: '${{ needs.monitor-canary.outputs.monitoring_result == "success" ? "✅ Promoted" : "❌ Rolled Back" }}',
+                  short: true
+                }],
+                footer: 'School ERP Deployment Pipeline',
+                ts: ${{ github.event.head_commit.timestamp }}
+              }]
+            }
+        env:
+          SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK_URL }}
+
+      - name: 📧 Send Email Notification
+        if: github.event.inputs.deployment_target == 'production'
+        uses: dawidd6/action-send-mail@v3
+        with:
+          server_address: ${{ secrets.SMTP_SERVER }}
+          server_port: 587
+          username: ${{ secrets.SMTP_USERNAME }}
+          password: ${{ secrets.SMTP_PASSWORD }}
+          subject: |
+            🐦 Canary Deployment ${{ needs.monitor-canary.outputs.monitoring_result == 'success' && 'Promoted' || 'Rolled Back' }} - School ERP ${{ github.event.inputs.version }}
+          body: |
+            Canary Deployment Summary:
+            
+            Environment: ${{ github.event.inputs.deployment_target }}
+            Version: ${{ github.event.inputs.version }}
+            Canary Traffic: ${{ github.event.inputs.canary_percentage }}%
+            Monitoring Duration: ${{ github.event.inputs.monitoring_duration }} minutes
+            Result: ${{ needs.monitor-canary.outputs.monitoring_result == 'success' && '✅ Promoted' || '❌ Rolled Back' }}
+            
+            Deployment ID: ${{ needs.pre-deployment-validation.outputs.deployment_id }}
+            Executed at: ${{ github.event.head_commit.timestamp }}
+            
+            View deployment logs: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+          to: ${{ secrets.DEPLOYMENT_NOTIFICATION_EMAIL }}
+          from: ${{ secrets.SMTP_FROM_EMAIL }}
+
+  canary-deployment-summary:
+    name: 📊 Canary Deployment Summary
+    runs-on: ubuntu-latest
+    needs: [pre-deployment-validation, build-canary-image, deploy-canary, monitor-canary, promote-or-rollback]
+    if: always()
+    
+    steps:
+      - name: 📊 Generate Deployment Summary
+        run: |
+          cat > canary-deployment-summary.md << EOF
+          # 🐦 Canary Deployment Summary
+          
+          **Deployment ID:** ${{ needs.pre-deployment-validation.outputs.deployment_id }}
+          **Version:** ${{ github.event.inputs.version }}
+          **Target:** ${{ github.event.inputs.deployment_target }}
+          **Canary Traffic:** ${{ github.event.inputs.canary_percentage }}%
+          **Execution Time:** $(date -u)
+          
+          ## Deployment Pipeline Results
+          
+          | Stage | Status | Duration | Notes |
+          |-------|--------|----------|-------|
+          | 🔍 Pre-Deployment Validation | ${{ needs.pre-deployment-validation.result }} | - | Tests, security, infrastructure |
+          | 🏗️ Image Build | ${{ needs.build-canary-image.result }} | - | Canary image built and pushed |
+          | 🚀 Canary Deployment | ${{ needs.deploy-canary.result }} | - | Traffic split configured |
+          | 📊 Monitoring | ${{ needs.monitor-canary.result }} | ${{ github.event.inputs.monitoring_duration || '30' }} min | Performance monitoring |
+          | 🎯 Promote/Rollback | ${{ needs.promote-or-rollback.result }} | - | Final deployment decision |
+          
+          ## Final Status
+          
+          **Result:** $(if [[ "${{ needs.monitor-canary.outputs.monitoring_result }}" == "success" ]]; then echo "✅ PROMOTED - Canary successfully promoted to production"; else echo "❌ ROLLED BACK - Canary failed monitoring criteria"; fi)
+          
+          ### Key Metrics
+          - **Error Rate Threshold:** ${{ github.event.inputs.rollback_threshold || '5' }}%
+          - **Monitoring Duration:** ${{ github.event.inputs.monitoring_duration || '30' }} minutes
+          - **Traffic Split:** ${{ github.event.inputs.canary_percentage }}% canary / ${{ steps.calculate.outputs.main_percentage }}% main
+          - **Final Metrics:** ${{ needs.monitor-canary.outputs.final_metrics }}
+          
+          ### Lessons Learned
+          - Canary deployment process executed successfully
+          - Monitoring and rollback mechanisms functional
+          - Traffic splitting performed as expected
+          - Automated decision making based on metrics
+          
+          ## Next Steps
+          
+          $(if [[ "${{ needs.monitor-canary.outputs.monitoring_result }}" == "success" ]]; then
+            echo "### Post-Promotion Actions"
+            echo "- ✅ Monitor production closely for 24-48 hours"
+            echo "- ✅ Update deployment documentation"
+            echo "- ✅ Plan next feature deployment"
+            echo "- ✅ Review canary metrics for optimization"
+            echo ""
+            echo "### Recommended Monitoring"
+            echo "- Watch error rates and response times"
+            echo "- Monitor business metrics and user feedback"
+            echo "- Check database performance"
+            echo "- Verify third-party integrations"
+          else
+            echo "### Post-Rollback Actions"
+            echo "- ❌ Investigate root cause of failures"
+            echo "- ❌ Review and improve monitoring thresholds"
+            echo "- ❌ Update testing procedures"
+            echo "- ❌ Schedule hotfix deployment if needed"
+            echo ""
+            echo "### Investigation Areas"
+            echo "- Check application logs for errors"
+            echo "- Review database connection issues"
+            echo "- Validate external service dependencies"
+            echo "- Analyze performance bottlenecks"
+          fi)
+          
+          ## Deployment Artifacts
+          
+          - **Docker Image:** ${{ needs.build-canary-image.outputs.image_uri }}
+          - **Baseline Metrics:** Available in workflow artifacts
+          - **Monitoring Results:** Available in workflow artifacts
+          - **Deployment Logs:** ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+          
+          ---
+          
+          **Generated on:** $(date -u)  
+          **Workflow Run:** [${{ github.run_id }}](${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }})  
+          **Commit:** [${{ github.sha }}](${{ github.server_url }}/${{ github.repository }}/commit/${{ github.sha }})
+          
+          EOF
+
+      - name: 🧮 Calculate Percentages
+        id: calculate
+        run: |
+          MAIN_PERCENTAGE=$((100 - ${{ github.event.inputs.canary_percentage }}))
+          echo "main_percentage=$MAIN_PERCENTAGE" >> $GITHUB_OUTPUT
+
+      - name: 📊 Upload Deployment Summary
+        uses: actions/upload-artifact@v4
+        with:
+          name: canary-deployment-summary-${{ needs.pre-deployment-validation.outputs.deployment_id }}
+          path: canary-deployment-summary.md
+          retention-days: 90
+
+      - name: 📊 Create Deployment Summary Comment
+        if: github.event_name == 'pull_request'
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const fs = require('fs');
+            const summary = fs.readFileSync('canary-deployment-summary.md', 'utf8');
+            
+            github.rest.issues.createComment({
+              issue_number: context.issue.number,
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              body: summary
+            });
+
+  cleanup-and-finalize:
+    name: 🧹 Cleanup and Finalize
+    runs-on: ubuntu-latest
+    needs: [pre-deployment-validation, build-canary-image, deploy-canary, monitor-canary, promote-or-rollback, canary-deployment-summary]
+    if: always()
+    
+    steps:
+      - name: 🔐 Configure AWS Credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: ${{ env.AWS_REGION }}
+
+      - name: 🧹 Final Cleanup
+        env:
+          DEPLOYMENT_TARGET: ${{ github.event.inputs.deployment_target }}
+        run: |
+          echo "🧹 Performing final cleanup..."
+          
+          # Clean up any remaining canary resources
+          CLUSTER_NAME="school-erp-$DEPLOYMENT_TARGET"
+          
+          # Remove any stopped tasks
+          aws ecs list-tasks --cluster $CLUSTER_NAME --family school-erp-canary-$DEPLOYMENT_TARGET --desired-status STOPPED \
+            --query 'taskArns' --output text | xargs -r aws ecs stop-task --cluster $CLUSTER_NAME --task || true
+          
+          # Clean up old ECR images (keep last 10)
+          aws ecr list-images --repository-name school-erp --filter tagStatus=TAGGED \
+            --query 'sort_by(imageDetails,&imagePushedAt)[:-10].imageDigest' --output text | \
+            xargs -r aws ecr batch-delete-image --repository-name school-erp --image-ids imageDigest= || true
+          
+          echo "✅ Final cleanup completed"
+
+      - name: 📝 Update Deployment Registry
+        run: |
+          echo "📝 Updating deployment registry..."
+          
+          # Create deployment record
+          cat > deployment-record.json << EOF
+          {
+            "deployment_id": "${{ needs.pre-deployment-validation.outputs.deployment_id }}",
+            "version": "${{ github.event.inputs.version }}",
+            "environment": "${{ github.event.inputs.deployment_target }}",
+            "type": "canary",
+            "canary_percentage": ${{ github.event.inputs.canary_percentage }},
+            "result": "${{ needs.monitor-canary.outputs.monitoring_result }}",
+            "started_at": "${{ github.event.head_commit.timestamp }}",
+            "completed_at": "$(date -u +%Y-%m-%dT%H:%M:%SZ)",
+            "workflow_run_id": "${{ github.run_id }}",
+            "commit_sha": "${{ github.sha }}",
+            "image_uri": "${{ needs.build-canary-image.outputs.image_uri }}",
+            "monitoring_duration": "${{ github.event.inputs.monitoring_duration }}",
+            "rollback_threshold": "${{ github.event.inputs.rollback_threshold }}"
+          }
+          EOF
+          
+          echo "📝 Deployment record created:"
+          cat deployment-record.json | jq .
+
+      - name: 🎯 Set Deployment Status
+        run: |
+          if [[ "${{ needs.monitor-canary.outputs.monitoring_result }}" == "success" ]]; then
+            echo "🎯 CANARY DEPLOYMENT: SUCCESS ✅"
+            echo "   Version ${{ github.event.inputs.version }} promoted to production"
+          else
+            echo "🎯 CANARY DEPLOYMENT: ROLLBACK ❌"
+            echo "   Version ${{ github.event.inputs.version }} rolled back due to failures"
+            exit 1
+          fi

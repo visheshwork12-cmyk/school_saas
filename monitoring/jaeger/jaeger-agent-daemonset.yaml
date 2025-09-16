@@ -1,0 +1,48 @@
+# Jaeger Agent DaemonSet for distributed tracing collection
+apiVersion: apps/v1
+kind: DaemonSet
+metadata:
+  name: jaeger-agent
+  namespace: monitoring
+  labels:
+    app: jaeger
+    component: agent
+spec:
+  selector:
+    matchLabels:
+      app: jaeger
+      component: agent
+  template:
+    metadata:
+      labels:
+        app: jaeger
+        component: agent
+    spec:
+      containers:
+      - name: jaeger-agent
+        image: jaegertracing/jaeger-agent:1.38
+        args:
+          - --collector.host-port=jaeger-collector.monitoring.svc.cluster.local:14267
+          - --reporter.grpc.host-port=jaeger-collector.monitoring.svc.cluster.local:14250
+        ports:
+        - containerPort: 5775
+          protocol: UDP
+          name: zk-compact-trft
+        - containerPort: 6831
+          protocol: UDP
+          name: jg-compact-trft
+        - containerPort: 6832
+          protocol: UDP
+          name: jg-binary-trft
+        - containerPort: 5778
+          protocol: TCP
+          name: config-rest
+        hostNetwork: true
+        dnsPolicy: ClusterFirstWithHostNet
+        resources:
+          requests:
+            memory: "64Mi"
+            cpu: "100m"
+          limits:
+            memory: "128Mi"
+            cpu: "200m"

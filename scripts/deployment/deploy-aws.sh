@@ -447,6 +447,88 @@ execute_terraform_action() {
     esac
 }
 
+
+echo "🔐 Applying CloudFront policies..."
+
+# Apply S3 bucket policy
+aws s3api put-bucket-policy \
+  --bucket school-erp-static-assets \
+  --policy file://security/policies/s3/s3-cloudfront-access-policy.json
+
+# Create CloudFront distribution with policies
+terraform apply -var-file="config/infrastructure/terraform/environments/production.tfvars"
+
+echo "✅ CloudFront policies applied successfully!"
+
+
+
+# WAF और CloudWatch setup
+setup_waf_and_monitoring() {
+    log INFO "Setting up WAF and CloudWatch monitoring..."
+    
+    # Deploy WAF configuration
+    cd infrastructure/terraform
+    terraform apply -target=aws_wafv2_web_acl.school_erp_waf -auto-approve
+    
+    # Deploy CloudWatch alarms
+    terraform apply -target=aws_cloudwatch_metric_alarm.cloudfront_4xx_errors -auto-approve
+    terraform apply -target=aws_cloudwatch_metric_alarm.cloudfront_5xx_errors -auto-approve
+    terraform apply -target=aws_cloudwatch_metric_alarm.waf_blocked_requests -auto-approve
+    
+    # Setup SNS notifications
+    terraform apply -target=aws_sns_topic.alerts -auto-approve
+    terraform apply -target=aws_sns_topic.security_alerts -auto-approve
+    
+    log SUCCESS "WAF and monitoring setup completed"
+}
+
+
+# Add these functions to scripts/deployment/deploy-aws.sh
+
+deploy_ecs_infrastructure() {
+    log INFO "🚀 Deploying ECS infrastructure..."
+    
+    # Initialize Terraform
+    cd config/infrastructure/terraform
+    terraform init
+    
+    # Plan the deployment
+    terraform plan -var-file="environments/${ENVIRONMENT}.tfvars"
+    
+    # Apply the configuration (with confirmation)
+    if [[ "$AUTO_APPROVE" == "true" ]]; then
+        terraform apply -var-file="environments/${ENVIRONMENT}.tfvars" -auto-approve
+    else
+        terraform apply -var-file="environments/${ENVIRONMENT}.tfvars"
+    fi
+    
+    log INFO "✅ ECS infrastructure deployed successfully"
+}
+
+monitor_ecs_scaling() {
+    log INFO "📊 Monitoring ECS scaling activities..."
+    
+    # Monitor scaling activities
+    aws application-autoscaling describe-scaling-activities \
+      --service-namespace ecs \
+      --resource-id "service/school-erp-saas-${ENVIRONMENT}-cluster/school-erp-saas-${ENVIRONMENT}-service" \
+      --region "${REGION}"
+}
+
+test_scaling_policies() {
+    log INFO "🧪 Testing ECS scaling policies..."
+    
+    # Test scaling policies by simulating high CPU
+    aws cloudwatch put-metric-data \
+      --namespace "AWS/ECS" \
+      --metric-data MetricName=CPUUtilization,Value=90.0,Unit=Percent \
+      --region "${REGION}"
+    
+    log INFO "⏰ Waiting for scaling to trigger (check in ~5 minutes)..."
+}
+
+
+
 post_deployment_checks() {
     if [[ "$ACTION" == "apply" ]] && [[ "$DRY_RUN" != "true" ]]; then
         log INFO "🔍 Running post-deployment checks..."

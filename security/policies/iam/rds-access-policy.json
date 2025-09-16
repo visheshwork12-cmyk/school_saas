@@ -1,0 +1,76 @@
+{
+  "Version": "2012-10-17",
+  "Statement": [
+    {
+      "Sid": "RDSInstanceManagement",
+      "Effect": "Allow",
+      "Action": [
+        "rds:DescribeDBInstances",
+        "rds:DescribeDBClusters",
+        "rds:DescribeDBSubnetGroups",
+        "rds:DescribeDBParameterGroups",
+        "rds:DescribeDBClusterParameterGroups",
+        "rds:ListTagsForResource"
+      ],
+      "Resource": [
+        "arn:aws:rds:*:*:db:school-erp-*",
+        "arn:aws:rds:*:*:cluster:school-erp-*",
+        "arn:aws:rds:*:*:subnet-group:school-erp-*",
+        "arn:aws:rds:*:*:pg:school-erp-*",
+        "arn:aws:rds:*:*:cluster-pg:school-erp-*"
+      ]
+    },
+    {
+      "Sid": "RDSConnectionAccess",
+      "Effect": "Allow",
+      "Action": [
+        "rds-db:connect"
+      ],
+      "Resource": [
+        "arn:aws:rds-db:*:*:dbuser:school-erp-*/school_erp_admin",
+        "arn:aws:rds-db:*:*:dbuser:school-erp-*/school_erp_app"
+      ]
+    },
+    {
+      "Sid": "RDSMonitoring",
+      "Effect": "Allow",
+      "Action": [
+        "rds:DescribeDBLogFiles",
+        "rds:DownloadDBLogFilePortion",
+        "cloudwatch:GetMetricStatistics",
+        "cloudwatch:ListMetrics"
+      ],
+      "Resource": "*",
+      "Condition": {
+        "StringLike": {
+          "aws:RequestedRegion": ["us-east-1", "us-west-2"]
+        }
+      }
+    },
+    {
+      "Sid": "RDSBackupAccess",
+      "Effect": "Allow",
+      "Action": [
+        "rds:DescribeDBSnapshots",
+        "rds:DescribeDBClusterSnapshots",
+        "rds:CreateDBSnapshot",
+        "rds:CreateDBClusterSnapshot"
+      ],
+      "Resource": [
+        "arn:aws:rds:*:*:snapshot:school-erp-*",
+        "arn:aws:rds:*:*:cluster-snapshot:school-erp-*"
+      ]
+    },
+    {
+      "Sid": "RDSSecretAccess",
+      "Effect": "Allow",
+      "Action": [
+        "secretsmanager:GetSecretValue",
+        "secretsmanager:DescribeSecret"
+      ],
+      "Resource": [
+        "arn:aws:secretsmanager:*:*:secret:school-erp/*/database*"
+      ]
+    }
+  ]
+}

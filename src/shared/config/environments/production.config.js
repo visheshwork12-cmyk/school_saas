@@ -34,6 +34,59 @@ const productionConfig = {
     },
   },
 
+  cache: {
+    provider: 'elasticache',
+    elasticache: {
+      endpoint: process.env.ELASTICACHE_ENDPOINT,
+      port: parseInt(process.env.ELASTICACHE_PORT) || 6379,
+      authToken: process.env.ELASTICACHE_AUTH_TOKEN,
+      
+      // Cluster configuration
+      cluster: {
+        enabled: process.env.ELASTICACHE_CLUSTER_ENABLED === 'true',
+        endpoints: process.env.ELASTICACHE_CLUSTER_ENDPOINTS?.split(',') || [],
+        readFromReplicas: true
+      },
+      
+      // Security
+      tls: {
+        enabled: process.env.ELASTICACHE_TLS_ENABLED === 'true',
+        skipVerify: true // ElastiCache uses self-signed certificates
+      },
+      
+      // Performance tuning
+      connectionPool: {
+        min: 5,
+        max: 20,
+        acquireTimeoutMillis: 60000,
+        idleTimeoutMillis: 30000
+      },
+      
+      // Multi-tenant settings
+      keyPrefix: process.env.ELASTICACHE_KEY_PREFIX || 'school-erp:',
+      tenantSeparation: true,
+      
+      // Backup and failover
+      backup: {
+        enabled: true,
+        snapshotRetentionLimit: 5,
+        snapshotWindow: '03:00-05:00',
+        backupWindow: '02:00-04:00'
+      }
+    },
+    
+    // TTL settings for different data types
+    ttl: {
+      session: 86400,      // 24 hours
+      userData: 3600,      // 1 hour
+      studentData: 3600,   // 1 hour
+      classData: 7200,     // 2 hours
+      attendance: 86400,   // 1 day
+      reports: 1800,       // 30 minutes
+      dashboard: 600       // 10 minutes
+    }
+  },
+
   // Production Redis - required
   redis: {
     ...baseConfig.redis,
@@ -55,6 +108,8 @@ const productionConfig = {
     keepAlive: true,
     family: 4,
   },
+
+
 
   // Strict CORS for production
   cors: {

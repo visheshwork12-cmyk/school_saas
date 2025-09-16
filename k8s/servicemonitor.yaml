@@ -1,0 +1,97 @@
+# k8s/servicemonitor.yaml - Prometheus ServiceMonitor for School ERP API
+apiVersion: monitoring.coreos.com/v1
+kind: ServiceMonitor
+metadata:
+  name: school-erp-api-monitor
+  namespace: school-erp
+  labels:
+    app: school-erp
+    component: monitoring
+    release: prometheus
+spec:
+  # Select services to monitor
+  selector:
+    matchLabels:
+      app: school-erp
+      component: api
+  
+  # Namespace selection
+  namespaceSelector:
+    matchNames:
+    - school-erp
+  
+  # Scraping configuration
+  endpoints:
+  - port: metrics
+    path: /metrics
+    interval: 30s
+    scrapeTimeout: 10s
+    scheme: http
+    honorLabels: true
+    
+  # Additional API endpoints
+  - port: http
+    path: /health
+    interval: 60s
+    scrapeTimeout: 5s
+    scheme: http
+    honorLabels: true
+    metricRelabelings:
+    - sourceLabels: [__name__]
+      regex: 'http_.*'
+      targetLabel: endpoint
+      replacement: 'health'
+
+---
+# ServiceMonitor for MongoDB metrics (if using mongodb-exporter)
+apiVersion: monitoring.coreos.com/v1
+kind: ServiceMonitor
+metadata:
+  name: school-erp-mongodb-monitor
+  namespace: school-erp
+  labels:
+    app: mongodb
+    component: monitoring
+    release: prometheus
+spec:
+  selector:
+    matchLabels:
+      app: mongodb
+      component: exporter
+  
+  namespaceSelector:
+    matchNames:
+    - school-erp
+  
+  endpoints:
+  - port: metrics
+    path: /metrics
+    interval: 30s
+    scrapeTimeout: 10s
+
+---
+# ServiceMonitor for Redis metrics (if using redis-exporter)
+apiVersion: monitoring.coreos.com/v1
+kind: ServiceMonitor
+metadata:
+  name: school-erp-redis-monitor
+  namespace: school-erp
+  labels:
+    app: redis
+    component: monitoring
+    release: prometheus
+spec:
+  selector:
+    matchLabels:
+      app: redis
+      component: exporter
+  
+  namespaceSelector:
+    matchNames:
+    - school-erp
+  
+  endpoints:
+  - port: metrics
+    path: /metrics
+    interval: 30s
+    scrapeTimeout: 10s

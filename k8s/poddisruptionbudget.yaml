@@ -1,0 +1,70 @@
+# k8s/poddisruptionbudget.yaml - Pod Disruption Budgets for School ERP
+apiVersion: policy/v1
+kind: PodDisruptionBudget
+metadata:
+  name: school-erp-api-pdb
+  namespace: school-erp
+  labels:
+    app: school-erp
+    component: api
+spec:
+  # Ensure at least 2 API pods are always available
+  minAvailable: 2
+  selector:
+    matchLabels:
+      app: school-erp
+      component: api
+
+---
+# PDB for MongoDB (if using replica set)
+apiVersion: policy/v1
+kind: PodDisruptionBudget
+metadata:
+  name: school-erp-mongodb-pdb
+  namespace: school-erp
+  labels:
+    app: mongodb
+    component: database
+spec:
+  # For MongoDB replica set, ensure majority is maintained
+  minAvailable: 2
+  selector:
+    matchLabels:
+      app: mongodb
+      component: database
+
+---
+# PDB for Redis (if using cluster mode)
+apiVersion: policy/v1
+kind: PodDisruptionBudget
+metadata:
+  name: school-erp-redis-pdb
+  namespace: school-erp
+  labels:
+    app: redis
+    component: cache
+spec:
+  # For Redis cluster, allow maximum 1 pod disruption
+  maxUnavailable: 1
+  selector:
+    matchLabels:
+      app: redis
+      component: cache
+
+---
+# PDB for file processing pods
+apiVersion: policy/v1
+kind: PodDisruptionBudget
+metadata:
+  name: school-erp-files-pdb
+  namespace: school-erp
+  labels:
+    app: school-erp
+    component: files
+spec:
+  # Ensure at least 1 file processing pod is available
+  minAvailable: 1
+  selector:
+    matchLabels:
+      app: school-erp
+      component: files

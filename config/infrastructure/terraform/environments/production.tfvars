@@ -68,3 +68,50 @@ backup_retention_days = 90
 
 # Monitoring
 notification_sns_topic_arn = "arn:aws:sns:us-east-1:ACCOUNT_ID:school-erp-alerts"
+
+
+
+# config/infrastructure/terraform/environments/production.tfvars
+# Production Environment ECS Auto Scaling Configuration
+
+project_name = "school-erp-saas"
+environment  = "production"
+region      = "us-east-1"
+
+# Production Auto Scaling Configuration
+scaling_policies = {
+  production = {
+    min_capacity  = 3
+    max_capacity  = 20
+    cpu_target    = 70.0
+    memory_target = 75.0
+  }
+}
+
+# Production-specific variables
+mongodb_uri = "mongodb+srv://prod-user:password@prod-cluster.mongodb.net/school-erp-prod"
+jwt_secret  = "production-jwt-secret-key-minimum-32-characters-long"
+
+# Enhanced monitoring for production
+enable_container_insights = true
+log_retention_days       = 30
+
+# Performance optimization
+task_cpu_production    = 2048  # 2 vCPU
+task_memory_production = 4096  # 4 GB RAM
+
+# Advanced scaling thresholds
+cpu_scale_out_threshold    = 70.0
+cpu_scale_in_threshold     = 30.0
+memory_scale_out_threshold = 75.0
+memory_scale_in_threshold  = 40.0
+
+# Cooldown periods (production-optimized)
+scale_out_cooldown_production = 300  # 5 minutes
+scale_in_cooldown_production  = 600  # 10 minutes
+
+
+backup_retention_days = 90
+backup_notification_emails = ["ops@yourschool.com", "admin@yourschool.com"]
+mongodb_uri = "your-production-mongodb-uri"
+

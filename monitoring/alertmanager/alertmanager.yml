@@ -1,0 +1,127 @@
+# AlertManager configuration for School ERP SaaS
+global:
+  smtp_smarthost: 'localhost:587'
+  smtp_from: 'alerts@school-erp.com'
+  smtp_auth_username: 'alerts@school-erp.com'
+  smtp_auth_password_file: '/etc/alertmanager/email_password'
+  slack_api_url_file: '/etc/alertmanager/slack_api_url'
+
+# Routing configuration
+route:
+  group_by: ['alertname', 'tenant_id']
+  group_wait: 30s
+  group_interval: 5m
+  repeat_interval: 12h
+  receiver: 'default'
+  routes:
+  
+  # Critical alerts - immediate notification
+  - match:
+      severity: critical
+    receiver: 'critical-alerts'
+    group_wait: 10s
+    repeat_interval: 5m
+  
+  # Security alerts
+  - match:
+      security: "true"
+    receiver: 'security-team'
+    group_wait: 30s
+    repeat_interval: 1h
+  
+  # Business impact alerts
+  - match:
+      business_impact: "true"
+    receiver: 'business-alerts'
+    group_wait: 1m
+    repeat_interval: 30m
+  
+  # Database alerts
+  - match:
+      service: mongodb
+    receiver: 'database-team'
+  
+  # Payment/billing alerts
+  - match:
+      service: billing
+    receiver: 'billing-team'
+
+# Receivers configuration
+receivers:
+- name: 'default'
+  email_configs:
+  - to: 'ops@school-erp.com'
+    subject: '[School ERP] {{ .GroupLabels.alertname }}'
+    body: |
+      {{ range .Alerts }}
+      Alert: {{ .Annotations.summary }}
+      Description: {{ .Annotations.description }}
+      Tenant: {{ .Labels.tenant_id }}
+      Severity: {{ .Labels.severity }}
+      {{ if .Annotations.runbook_url }}
+      Runbook: {{ .Annotations.runbook_url }}
+      {{ end }}
+      {{ end }}
+
+- name: 'critical-alerts'
+  email_configs:
+  - to: 'ops@school-erp.com,cto@school-erp.com'
+    subject: '[CRITICAL] {{ .GroupLabels.alertname }}'
+    body: |
+      🚨 CRITICAL ALERT 🚨
+      {{ range .Alerts }}
+      Alert: {{ .Annotations.summary }}
+      Description: {{ .Annotations.description }}
+      Tenant: {{ .Labels.tenant_id }}
+      {{ if .Annotations.action_required }}
+      Action Required: {{ .Annotations.action_required }}
+      {{ end }}
+      {{ end }}
+  
+  slack_configs:
+  - channel: '#alerts-critical'
+    title: '🚨 Critical Alert: {{ .GroupLabels.alertname }}'
+    text: |
+      {{ range .Alerts }}
+      **{{ .Annotations.summary }}**
+      {{ .Annotations.description }}
+      Tenant: `{{ .Labels.tenant_id }}`
+      {{ end }}
+
+- name: 'security-team'
+  email_configs:
+  - to: 'security@school-erp.com,ops@school-erp.com'
+    subject: '[SECURITY] {{ .GroupLabels.alertname }}'
+  
+  slack_configs:
+  - channel: '#security-alerts'
+    title: '🔒 Security Alert: {{ .GroupLabels.alertname }}'
+
+- name: 'business-alerts'
+  email_configs:
+  - to: 'business@school-erp.com,ops@school-erp.com'
+    subject: '[BUSINESS IMPACT] {{ .GroupLabels.alertname }}'
+    
+- name: 'database-team'
+  email_configs:
+  - to: 'dba@school-erp.com,ops@school-erp.com'
+    subject: '[DATABASE] {{ .GroupLabels.alertname }}'
+  
+- name: 'billing-team'
+  email_configs:
+  - to: 'billing@school-erp.com,finance@school-erp.com'
+    subject: '[BILLING] {{ .GroupLabels.alertname }}'
+
+# Inhibition rules
+inhibit_rules:
+- source_match:
+    severity: 'critical'
+  target_match:
+    severity: 'warning'
+  equal: ['alertname', 'tenant_id']
+
+- source_match:
+    alertname: 'APIServiceDown'
+  target_match_re:
+    alertname: '.*API.*'
+  equal: ['tenant_id']

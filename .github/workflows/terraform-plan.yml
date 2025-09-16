@@ -1,0 +1,229 @@
+name: 🏗️ Terraform Infrastructure Plan
+
+on:
+  pull_request:
+    branches: [main, develop]
+    paths:
+      - 'config/infrastructure/terraform/**'
+      - '.github/workflows/terraform-plan.yml'
+  workflow_dispatch:
+    inputs:
+      environment:
+        description: 'Environment to plan'
+        required: true
+        default: 'staging'
+        type: choice
+        options:
+          - development
+          - staging
+          - production
+      destroy_plan:
+        description: 'Generate destroy plan'
+        required: false
+        default: false
+        type: boolean
+
+env:
+  TF_VERSION: '1.6.0'
+  AWS_REGION: 'us-east-1'
+  TF_VAR_project_name: 'school-erp'
+
+jobs:
+  terraform-validate:
+    name: 🔍 Validate & Security Check
+    runs-on: ubuntu-latest
+    outputs:
+      tf_changes: ${{ steps.plan.outputs.tf_changes }}
+      plan_exitcode: ${{ steps.plan.outputs.exitcode }}
+      
+    steps:
+      - name: 📥 Checkout Code
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: 🔧 Setup Terraform
+        uses: hashicorp/setup-terraform@v3
+        with:
+          terraform_version: ${{ env.TF_VERSION }}
+          terraform_wrapper: false
+
+      - name: 🔐 Configure AWS Credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: ${{ env.AWS_REGION }}
+
+      - name: 🏗️ Initialize Terraform
+        working-directory: config/infrastructure/terraform
+        run: |
+          terraform init \
+            -backend-config="bucket=school-erp-terraform-state-${{ github.event.inputs.environment || 'staging' }}" \
+            -backend-config="key=terraform.tfstate" \
+            -backend-config="region=${{ env.AWS_REGION }}" \
+            -backend-config="dynamodb_table=school-erp-terraform-locks" \
+            -input=false
+
+      - name: 🔍 Terraform Format Check
+        working-directory: config/infrastructure/terraform
+        run: terraform fmt -check -recursive
+        continue-on-error: true
+
+      - name: ✅ Terraform Validate
+        working-directory: config/infrastructure/terraform
+        run: terraform validate
+
+      - name: 🔒 Security Scan with tfsec
+        uses: aquasecurity/tfsec-action@v1.0.3
+        with:
+          working_directory: config/infrastructure/terraform
+          soft_fail: true
+          format: sarif
+          additional_args: --minimum-severity=MEDIUM
+
+      - name: 📋 Terraform Plan
+        id: plan
+        working-directory: config/infrastructure/terraform
+        env:
+          TF_VAR_environment: ${{ github.event.inputs.environment || 'staging' }}
+        run: |
+          if [[ "${{ github.event.inputs.destroy_plan }}" == "true" ]]; then
+            terraform plan -destroy \
+              -var-file="environments/${{ github.event.inputs.environment || 'staging' }}.tfvars" \
+              -out=destroy.tfplan \
+              -detailed-exitcode
+          else
+            terraform plan \
+              -var-file="environments/${{ github.event.inputs.environment || 'staging' }}.tfvars" \
+              -out=tfplan \
+              -detailed-exitcode
+          fi
+          
+          # Capture exit code
+          echo "exitcode=$?" >> $GITHUB_OUTPUT
+          
+          # Check if there are changes
+          if [[ $? -eq 2 ]]; then
+            echo "tf_changes=true" >> $GITHUB_OUTPUT
+          else
+            echo "tf_changes=false" >> $GITHUB_OUTPUT
+          fi
+
+      - name: 📊 Generate Plan Summary
+        if: steps.plan.outputs.tf_changes == 'true'
+        working-directory: config/infrastructure/terraform
+        run: |
+          echo "## Terraform Plan Summary" > plan_summary.md
+          echo "**Environment:** ${{ github.event.inputs.environment || 'staging' }}" >> plan_summary.md
+          echo "**Destroy Plan:** ${{ github.event.inputs.destroy_plan }}" >> plan_summary.md
+          echo "" >> plan_summary.md
+          
+          if [[ "${{ github.event.inputs.destroy_plan }}" == "true" ]]; then
+            terraform show -no-color destroy.tfplan | head -50 >> plan_summary.md
+          else
+            terraform show -no-color tfplan | head -50 >> plan_summary.md
+          fi
+
+      - name: 💬 Comment PR with Plan
+        if: github.event_name == 'pull_request' && steps.plan.outputs.tf_changes == 'true'
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const fs = require('fs');
+            const planSummary = fs.readFileSync('config/infrastructure/terraform/plan_summary.md', 'utf8');
+            
+            const body = `## 🏗️ Terraform Plan Results
+            
+            **Environment:** ${{ github.event.inputs.environment || 'staging' }}
+            **Changes Detected:** ✅ Yes
+            **Destroy Plan:** ${{ github.event.inputs.destroy_plan }}
+            
+            <details>
+            <summary>📋 View Plan Details</summary>
+            
+            \`\`\`hcl
+            ${planSummary}
+            \`\`\`
+            
+            </details>
+            
+            **Next Steps:**
+            - Review the proposed changes carefully
+            - Ensure all changes align with intended infrastructure updates  
+            - If approved, merge to trigger deployment workflow`;
+            
+            github.rest.issues.createComment({
+              issue_number: context.issue.number,
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              body: body
+            });
+
+      - name: 📁 Upload Plan Artifact
+        if: steps.plan.outputs.tf_changes == 'true'
+        uses: actions/upload-artifact@v4
+        with:
+          name: terraform-plan-${{ github.event.inputs.environment || 'staging' }}
+          path: |
+            config/infrastructure/terraform/*.tfplan
+            config/infrastructure/terraform/plan_summary.md
+          retention-days: 30
+
+  cost-estimation:
+    name: 💰 Cost Estimation
+    runs-on: ubuntu-latest
+    needs: [terraform-validate]
+    if: needs.terraform-validate.outputs.tf_changes == 'true'
+    
+    steps:
+      - name: 📥 Checkout Code
+        uses: actions/checkout@v4
+
+      - name: 📁 Download Plan
+        uses: actions/download-artifact@v4
+        with:
+          name: terraform-plan-${{ github.event.inputs.environment || 'staging' }}
+          path: config/infrastructure/terraform/
+
+      - name: 💰 Run Infracost
+        uses: infracost/actions/setup@v2
+        with:
+          api-key: ${{ secrets.INFRACOST_API_KEY }}
+
+      - name: 📊 Generate Cost Estimate
+        working-directory: config/infrastructure/terraform
+        run: |
+          infracost breakdown \
+            --path . \
+            --terraform-plan-path tfplan \
+            --format json \
+            --out-file infracost.json
+          
+          infracost output \
+            --path infracost.json \
+            --format table \
+            --out-file cost_estimate.txt
+
+      - name: 💬 Comment Cost Estimate
+        if: github.event_name == 'pull_request'
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const fs = require('fs');
+            const costEstimate = fs.readFileSync('config/infrastructure/terraform/cost_estimate.txt', 'utf8');
+            
+            const body = `## 💰 Infrastructure Cost Estimate
+            
+            \`\`\`
+            ${costEstimate}
+            \`\`\`
+            
+            **Note:** Costs are estimates and may vary based on actual usage.`;
+            
+            github.rest.issues.createComment({
+              issue_number: context.issue.number,
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              body: body
+            });

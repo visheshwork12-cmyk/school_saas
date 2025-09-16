@@ -1,0 +1,115 @@
+# buildspecs/docker-build.yml
+version: 0.2
+
+phases:
+  install:
+    runtime-versions:
+      nodejs: 18
+    commands:
+      - echo "Installing build dependencies..."
+      - npm ci --prefer-offline --no-audit
+      - pip install awscli
+
+  pre_build:
+    commands:
+      - echo "Logging in to Amazon ECR..."
+      - aws ecr get-login-password --region $AWS_DEFAULT_REGION | docker login --username AWS --password-stdin $AWS_ACCOUNT_ID.dkr.ecr.$AWS_DEFAULT_REGION.amazonaws.com
+      
+      - echo "Setting build variables..."
+      - REPOSITORY_URI=$AWS_ACCOUNT_ID.dkr.ecr.$AWS_DEFAULT_REGION.amazonaws.com/$IMAGE_REPO_NAME
+      - COMMIT_HASH=$(echo $CODEBUILD_RESOLVED_SOURCE_VERSION | cut -c 1-7)
+      - BUILD_DATE=$(date -u +'%Y-%m-%dT%H:%M:%SZ')
+      
+      - echo "Building application..."
+      - npm run build:aws
+
+  build:
+    commands:
+      - echo "Building Docker image..."
+      - docker build -t $IMAGE_REPO_NAME:latest -f docker/Dockerfile.prod .
+      - docker tag $IMAGE_REPO_NAME:latest $REPOSITORY_URI:latest
+      - docker tag $IMAGE_REPO_NAME:latest $REPOSITORY_URI:$IMAGE_TAG
+      - docker tag $IMAGE_REPO_NAME:latest $REPOSITORY_URI:$COMMIT_HASH
+
+  post_build:
+    commands:
+      - echo "Pushing Docker images..."
+      - docker push $REPOSITORY_URI:latest
+      - docker push $REPOSITORY_URI:$IMAGE_TAG
+      - docker push $REPOSITORY_URI:$COMMIT_HASH
+      
+      - echo "Creating image definitions file..."
+      - printf '[{"name":"school-erp-container","imageUri":"%s"}]' $REPOSITORY_URI:$IMAGE_TAG > imagedefinitions.json
+      
+      - echo "Creating appspec.yml for CodeDeploy..."
+      - |
+        cat > appspec.yml << EOF
+        version: 0.0
+        Resources:
+          - TargetService:
+              Type: AWS::ECS::Service
+              Properties:
+                TaskDefinition: <TASK_DEFINITION>
+                LoadBalancerInfo:
+                  ContainerName: "school-erp-container"
+                  ContainerPort: 3000
+        Hooks:
+          - BeforeInstall: "scripts/codedeploy/before-install.sh"
+          - AfterInstall: "scripts/codedeploy/after-install.sh"
+          - ApplicationStart: "scripts/codedeploy/application-start.sh"
+          - ApplicationStop: "scripts/codedeploy/application-stop.sh"
+        EOF
+      
+      - echo "Creating task definition template..."
+      - |
+        cat > taskdef.json << EOF
+        {
+          "family": "school-erp-task",
+          "networkMode": "awsvpc",
+          "requiresCompatibilities": ["FARGATE"],
+          "cpu": "512",
+          "memory": "1024",
+          "executionRoleArn": "arn:aws:iam::$AWS_ACCOUNT_ID:role/school-erp-execution-role",
+          "taskRoleArn": "arn:aws:iam::$AWS_ACCOUNT_ID:role/school-erp-task-role",
+          "containerDefinitions": [
+            {
+              "name": "school-erp-container",
+              "image": "<IMAGE1_NAME>",
+              "portMappings": [
+                {
+                  "containerPort": 3000,
+                  "protocol": "tcp"
+                }
+              ],
+              "essential": true,
+              "logConfiguration": {
+                "logDriver": "awslogs",
+                "options": {
+                  "awslogs-create-group": "true",
+                  "awslogs-group": "/aws/ecs/school-erp",
+                  "awslogs-region": "$AWS_DEFAULT_REGION",
+                  "awslogs-stream-prefix": "ecs"
+                }
+              },
+              "environment": [
+                {
+                  "name": "NODE_ENV",
+                  "value": "production"
+                },
+                {
+                  "name": "PORT",
+                  "value": "3000"
+                }
+              ]
+            }
+          ]
+        }
+        EOF
+
+artifacts:
+  files:
+    - imagedefinitions.json
+    - appspec.yml
+    - taskdef.json
+    - scripts/codedeploy/**/*
+  name: build-artifacts

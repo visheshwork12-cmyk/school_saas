@@ -1,0 +1,256 @@
+# k8s/networkpolicy.yaml - Comprehensive Network Policies for School ERP
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: school-erp-default-deny
+  namespace: school-erp
+  labels:
+    app: school-erp
+    component: security
+spec:
+  # Apply to all pods in the namespace
+  podSelector: {}
+  policyTypes:
+  - Ingress
+  - Egress
+
+---
+# Allow API pods to communicate with database and cache
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: school-erp-api-policy
+  namespace: school-erp
+  labels:
+    app: school-erp
+    component: api
+spec:
+  podSelector:
+    matchLabels:
+      app: school-erp
+      component: api
+  
+  policyTypes:
+  - Ingress
+  - Egress
+  
+  # Ingress rules - what can connect TO API pods
+  ingress:
+  # Allow ingress controller
+  - from:
+    - namespaceSelector:
+        matchLabels:
+          name: ingress-nginx
+    ports:
+    - protocol: TCP
+      port: 3000
+  
+  # Allow from monitoring namespace
+  - from:
+    - namespaceSelector:
+        matchLabels:
+          name: monitoring
+    ports:
+    - protocol: TCP
+      port: 3000
+    - protocol: TCP
+      port: 9090
+  
+  # Allow inter-pod communication within namespace
+  - from:
+    - podSelector:
+        matchLabels:
+          app: school-erp
+    ports:
+    - protocol: TCP
+      port: 3000
+
+  # Egress rules - what API pods can connect TO
+  egress:
+  # Allow DNS resolution
+  - to: []
+    ports:
+    - protocol: UDP
+      port: 53
+    - protocol: TCP
+      port: 53
+  
+  # Allow MongoDB connection
+  - to:
+    - podSelector:
+        matchLabels:
+          app: mongodb
+    ports:
+    - protocol: TCP
+      port: 27017
+  
+  # Allow Redis connection
+  - to:
+    - podSelector:
+        matchLabels:
+          app: redis
+    ports:
+    - protocol: TCP
+      port: 6379
+  
+  # Allow HTTPS for external APIs (AWS, Cloudinary, etc.)
+  - to: []
+    ports:
+    - protocol: TCP
+      port: 443
+  
+  # Allow SMTP for email
+  - to: []
+    ports:
+    - protocol: TCP
+      port: 587
+    - protocol: TCP
+      port: 465
+
+---
+# Database network policy
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: school-erp-mongodb-policy
+  namespace: school-erp
+  labels:
+    app: mongodb
+    component: database
+spec:
+  podSelector:
+    matchLabels:
+      app: mongodb
+  
+  policyTypes:
+  - Ingress
+  - Egress
+  
+  ingress:
+  # Allow API pods to connect
+  - from:
+    - podSelector:
+        matchLabels:
+          app: school-erp
+          component: api
+    ports:
+    - protocol: TCP
+      port: 27017
+  
+  # Allow monitoring
+  - from:
+    - namespaceSelector:
+        matchLabels:
+          name: monitoring
+    ports:
+    - protocol: TCP
+      port: 27017
+  
+  # Allow MongoDB replica set communication
+  - from:
+    - podSelector:
+        matchLabels:
+          app: mongodb
+    ports:
+    - protocol: TCP
+      port: 27017
+  
+  egress:
+  # DNS resolution
+  - to: []
+    ports:
+    - protocol: UDP
+      port: 53
+  
+  # MongoDB replica set communication
+  - to:
+    - podSelector:
+        matchLabels:
+          app: mongodb
+    ports:
+    - protocol: TCP
+      port: 27017
+
+---
+# Cache network policy
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: school-erp-redis-policy
+  namespace: school-erp
+  labels:
+    app: redis
+    component: cache
+spec:
+  podSelector:
+    matchLabels:
+      app: redis
+  
+  policyTypes:
+  - Ingress
+  - Egress
+  
+  ingress:
+  # Allow API pods to connect
+  - from:
+    - podSelector:
+        matchLabels:
+          app: school-erp
+          component: api
+    ports:
+    - protocol: TCP
+      port: 6379
+  
+  # Allow monitoring
+  - from:
+    - namespaceSelector:
+        matchLabels:
+          name: monitoring
+    ports:
+    - protocol: TCP
+      port: 6379
+  
+  egress:
+  # DNS resolution
+  - to: []
+    ports:
+    - protocol: UDP
+      port: 53
+
+---
+# Monitoring network policy
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: school-erp-monitoring-policy
+  namespace: school-erp
+  labels:
+    app: school-erp
+    component: monitoring
+spec:
+  podSelector:
+    matchLabels:
+      component: monitoring
+  
+  policyTypes:
+  - Egress
+  
+  egress:
+  # Allow scraping all pods in the namespace
+  - to:
+    - podSelector: {}
+    ports:
+    - protocol: TCP
+      port: 3000
+    - protocol: TCP
+      port: 9090
+    - protocol: TCP
+      port: 27017
+    - protocol: TCP
+      port: 6379
+  
+  # DNS resolution
+  - to: []
+    ports:
+    - protocol: UDP
+      port: 53

@@ -1,0 +1,47 @@
+# buildspecs/integration-tests.yml
+version: 0.2
+
+phases:
+  install:
+    runtime-versions:
+      nodejs: 18
+    commands:
+      - echo "Installing dependencies for integration tests..."
+      - npm ci --prefer-offline --no-audit
+
+  pre_build:
+    commands:
+      - echo "Setting up integration test environment..."
+      - export NODE_ENV=test
+      - mkdir -p reports
+      - echo "Waiting for application to be ready..."
+      - timeout 300 bash -c 'until curl -f $API_ENDPOINT/health; do sleep 10; done'
+
+  build:
+    commands:
+      - echo "Running integration tests..."
+      - npm run test:integration -- --testResultsProcessor=jest-junit --verbose
+      
+      - echo "Running API tests..."
+      - npx newman run tests/postman/integration-tests.json --environment tests/postman/environments/$TEST_ENVIRONMENT.json --reporters cli,junit --reporter-junit-export reports/newman-results.xml
+
+  post_build:
+    commands:
+      - echo "Integration tests completed"
+      - ls -la reports/
+
+artifacts:
+  files:
+    - 'reports/**/*'
+  name: integration-test-results
+
+reports:
+  integration-tests:
+    files:
+      - 'reports/junit.xml'
+    file-format: 'JUNITXML'
+  
+  api-tests:
+    files:
+      - 'reports/newman-results.xml'
+    file-format: 'JUNITXML'

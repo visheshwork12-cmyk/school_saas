@@ -1,35 +1,157 @@
 .
-├── CHANGELOG.md
-├── CODE_OF_CONDUCT.md
-├── CONTRIBUTING.md
-├── LICENSE
-├── README.md
-├── SECURITY.md
+├── .github
+│   ├── ISSUE_TEMPLATE
+│   │   ├── bug_report.md
+│   │   ├── feature_request.md
+│   │   └── support_request.md
+│   ├── workflows
+│   │   ├── backup-restore-test.yml
+│   │   ├── build.yml
+│   │   ├── canary-deployment.yml
+│   │   ├── codepipeline-trigger.yml
+│   │   ├── dependency-update.yml
+│   │   ├── deploy-dev.yml
+│   │   ├── deploy-prod.yml
+│   │   ├── deploy-staging.yml
+│   │   ├── hybrid-deploy.yml
+│   │   ├── performance-test.yml
+│   │   ├── security-baseline.yml
+│   │   ├── security-scan.yml
+│   │   ├── terraform-plan.yml
+│   │   └── test.yml
+│   └── pull_request_template.md
 ├── api
 │   └── index.js
-├── babel.config.js
 ├── backups
 │   ├── files
 │   ├── mongodb
 │   │   └── mongodb-backup.js
 │   └── redis
-├── commitlint.config.js
+├── buildspecs
+│   ├── docker-build.yml
+│   ├── e2e-tests.yml
+│   ├── health-check.yml
+│   ├── integration-tests.yml
+│   ├── performance-tests.yml
+│   ├── quality-check.yml
+│   └── unit-tests.yml
 ├── config
-│   ├── custom-environment-variables.json
 │   ├── infrastructure
+│   │   ├── cloudfront-functions
+│   │   │   ├── origin-selection.js
+│   │   │   └── security-headers.js
 │   │   └── terraform
-│   │       ├── backup-state.sh
 │   │       ├── environments
-│   │       │   └── production.tfvars
+│   │       │   ├── development.tfvars
+│   │       │   ├── production.tfvars
+│   │       │   └── staging.tfvars
+│   │       ├── modules
+│   │       │   ├── alb
+│   │       │   │   ├── main.tf
+│   │       │   │   ├── outputs.tf
+│   │       │   │   └── variables.tf
+│   │       │   ├── backup
+│   │       │   │   ├── lambda
+│   │       │   │   │   └── mongodb-backup.js
+│   │       │   │   ├── main.tf
+│   │       │   │   ├── outputs.tf
+│   │       │   │   └── variables.tf
+│   │       │   ├── cloudwatch
+│   │       │   │   ├── alarms.tf
+│   │       │   │   ├── dashboards.tf
+│   │       │   │   ├── logs.tf
+│   │       │   │   ├── main.tf
+│   │       │   │   ├── outputs.tf
+│   │       │   │   ├── sns.tf
+│   │       │   │   └── variables.tf
+│   │       │   ├── ecr
+│   │       │   │   ├── README.md
+│   │       │   │   ├── lifecycle.tf
+│   │       │   │   ├── main.tf
+│   │       │   │   ├── outputs.tf
+│   │       │   │   ├── policies.tf
+│   │       │   │   ├── variables.tf
+│   │       │   │   └── versions.tf
+│   │       │   ├── ecs
+│   │       │   │   ├── autoscaling.tf
+│   │       │   │   ├── cloudwatch.tf
+│   │       │   │   ├── main.tf
+│   │       │   │   ├── outputs.tf
+│   │       │   │   ├── service.tf
+│   │       │   │   ├── task-definition.tf
+│   │       │   │   └── variables.tf
+│   │       │   ├── eks
+│   │       │   │   ├── main.tf
+│   │       │   │   ├── outputs.tf
+│   │       │   │   └── variables.tf
+│   │       │   ├── elasticache
+│   │       │   │   ├── main.tf
+│   │       │   │   ├── outputs.tf
+│   │       │   │   └── variables.tf
+│   │       │   ├── iam
+│   │       │   │   └── main.tf
+│   │       │   ├── rds
+│   │       │   │   ├── README.md
+│   │       │   │   ├── main.tf
+│   │       │   │   ├── outputs.tf
+│   │       │   │   └── variables.tf
+│   │       │   ├── secrets
+│   │       │   │   ├──  main.tf
+│   │       │   │   ├── outputs.tf
+│   │       │   │   └── variables.tf
+│   │       │   ├── vpc
+│   │       │   │   ├── main.tf
+│   │       │   │   ├── outputs.tf
+│   │       │   │   └── variables.tf
+│   │       │   ├── ecs-autoscaling.tf
+│   │       │   └── outputs.tf
+│   │       ├── alb-listeners.tf
+│   │       ├── alb-origins.tf
+│   │       ├── backend.tf
+│   │       ├── backup-state.sh
+│   │       ├── cloudfront-cache-policies.tf
+│   │       ├── cloudfront-cdn.tf
+│   │       ├── cloudfront-origin-policies.tf
+│   │       ├── cloudfront-response-headers.tf
+│   │       ├── cloudfront.tf
+│   │       ├── cloudwatch-alarms.tf
+│   │       ├── codebuild.tf
+│   │       ├── codedeploy.tf
+│   │       ├── codepipeline-support.tf
+│   │       ├── codepipeline.tf
+│   │       ├── elasticache.tf
+│   │       ├── iam-codepipeline.tf
 │   │       ├── main.tf
+│   │       ├── outputs.tf
+│   │       ├── pipeline-monitoring.tf
+│   │       ├── provider.tf
 │   │       ├── restore-state.sh
-│   │       └── variables.tf
+│   │       ├── s3-origins.tf
+│   │       ├── s3-static-assets.tf
+│   │       ├── security-groups.tf
+│   │       ├── ssl-certificate.tf
+│   │       ├── terraform.tfvars.example
+│   │       ├── variables.tf
+│   │       └── waf.tf
+│   ├── monitoring
+│   │   └── cloudwatch
+│   │       ├── alarms
+│   │       │   └── ecs-alarms.tf
+│   │       └── dashboards
+│   │           └── ecs-metrics.json
 │   ├── restore
 │   │   └── s3-restore.sh
+│   ├── .env.development
+│   ├── .env.docker.dev
+│   ├── .env.docker.prod
+│   ├── .env.example
+│   ├── .env.local
+│   ├── .env.production
+│   ├── .env.staging
+│   ├── .env.test
+│   ├── custom-environment-variables.json
 │   └── s3-backup.sh
 ├── coverage
-│   ├── clover.xml
-│   ├── coverage-final.json
 │   ├── lcov-report
 │   │   ├── base.css
 │   │   ├── block-navigation.js
@@ -39,32 +161,35 @@
 │   │   ├── prettify.js
 │   │   ├── sort-arrow-sprite.png
 │   │   └── sorter.js
+│   ├── clover.xml
+│   ├── coverage-final.json
 │   └── lcov.info
 ├── docker
+│   ├── nginx
+│   │   ├── ssl
+│   │   └── nginx.conf
+│   ├── .dockerignore
 │   ├── Dockerfile
 │   ├── Dockerfile.dev
 │   ├── Dockerfile.prod
 │   ├── docker-compose.dev.yml
 │   ├── docker-compose.prod.yml
-│   ├── docker-compose.yml
-│   └── nginx
-│       ├── nginx.conf
-│       └── ssl
+│   └── docker-compose.yml
 ├── docs
 │   ├── api
-│   │   ├── api-reference-generated.md
-│   │   ├── changelog.md
 │   │   ├── examples
 │   │   │   ├── authentication.md
 │   │   │   ├── multi-tenancy.md
 │   │   │   └── subscription-management.md
 │   │   ├── html
-│   │   ├── openapi.json
-│   │   ├── openapi.yaml
 │   │   ├── postman
 │   │   │   ├── platform-apis.json
 │   │   │   ├── product-apis.json
 │   │   │   └── school-apis.json
+│   │   ├── api-reference-generated.md
+│   │   ├── changelog.md
+│   │   ├── openapi.json
+│   │   ├── openapi.yaml
 │   │   └── swagger-config.js
 │   ├── architecture
 │   │   ├── database-schema-generated.md
@@ -95,30 +220,41 @@
 │   │   ├── teacher-guide.md
 │   │   └── troubleshooting.md
 │   └── validation-report.md
-├── dump.rdb
-├── husky.config.js
-├── jest.config.js
-├── jsconfig.json
-├── jsdoc.conf.json
 ├── k8s
-│   ├── configmap.yaml
-│   ├── deployment.yaml
-│   ├── hpa.yaml
-│   ├── ingress.yaml
 │   ├── monitoring
 │   │   ├── alertmanager.yml
 │   │   ├── grafana.yaml
 │   │   └── prometheus.yaml
+│   ├── backup-schedule.yaml
+│   ├── configmap.yaml
+│   ├── deployment.yaml
+│   ├── external-secrets.yaml
+│   ├── hpa.yaml
+│   ├── ingress.yaml
 │   ├── namespace.yaml
+│   ├── networkpolicy.yaml
+│   ├── poddisruptionbudget.yaml
+│   ├── rbac.yaml
 │   ├── secrets.yaml
-│   └── service.yaml
-├── lint-staged.config.js
+│   ├── service.yaml
+│   ├── servicemonitor.yaml
+│   └── storageclass.yaml
+├── lambda
+│   └── package.json
 ├── logs
 │   ├── combined.log
 │   ├── error.log
 │   ├── exceptions.log
 │   └── rejections.log
 ├── monitoring
+│   ├── alertmanager
+│   │   └── alertmanager.yml
+│   ├── elasticsearch
+│   │   ├── elasticsearch-service.yaml
+│   │   └── elasticsearch-statefulset.yaml
+│   ├── fluentd
+│   │   ├── fluentd-configmap.yaml
+│   │   └── fluentd-daemonset.yaml
 │   ├── grafana
 │   │   ├── dashboards
 │   │   │   ├── api-metrics.json
@@ -130,19 +266,24 @@
 │   │   ├── comprehensive-health.js
 │   │   ├── database-health.js
 │   │   └── external-services-health.js
+│   ├── jaeger
+│   │   ├── jaeger-agent-daemonset.yaml
+│   │   └── jaeger-deployment.yaml
+│   ├── kibana
+│   │   └── kibana-deployment.yaml
 │   ├── logs
 │   │   ├── filebeat.yml
 │   │   ├── kibana.yml
 │   │   └── logstash.conf
-│   └── prometheus
-│       ├── alerts.yml
-│       ├── prometheus.yml
-│       ├── rules.yml
-│       └── school-erp-metrics.js
-├── netlify.toml
-├── nodemon.json
-├── package-lock.json
-├── package.json
+│   ├── prometheus
+│   │   ├── alert-rules
+│   │   │   └── school-erp-alerts.yaml
+│   │   ├── alerts.yml
+│   │   ├── prometheus.yml
+│   │   └── rules.yml
+│   ├── scripts
+│   │   └── setup-alerting.sh
+│   └── setup-observability-stack.sh
 ├── public
 │   ├── docs
 │   │   ├── api-documentation.html
@@ -154,63 +295,102 @@
 │       ├── email
 │       ├── pdf
 │       └── reports
-├── railway.json
-├── render.yaml
 ├── scripts
-│   ├── backup-scheduler.sh
-│   ├── build
-│   │   ├── build.js
-│   │   ├── bundle.js
-│   │   └── optimize.js
-│   ├── create-indexes.js
+│   ├── aws
+│   │   ├── cleanup-resources.sh
+│   │   ├── setup-ecr.sh
+│   │   ├── setup-rds.sh
+│   │   └── setup-vpc.sh
+│   ├── codepipeline
+│   │   ├── deploy-pipeline.sh
+│   │   ├── setup-pipeline.sh
+│   │   └── trigger-pipeline.sh
 │   ├── database
 │   │   ├── backup.js
 │   │   ├── cleanup.js
 │   │   ├── migrate.js
 │   │   ├── restore.js
 │   │   └── seed.js
-│   ├── deploy-hybrid.sh
 │   ├── deployment
+│   │   ├── deploy-alb.sh
 │   │   ├── deploy-aws.sh
+│   │   ├── deploy-cloudfront.sh
 │   │   ├── deploy-docker.sh
+│   │   ├── deploy-ecs.sh
+│   │   ├── deploy-iam.sh
 │   │   ├── deploy-k8s.sh
+│   │   ├── deploy-static-assets.sh
+│   │   ├── deploy.js
 │   │   ├── deploy.sh
 │   │   ├── docker-build.sh
 │   │   ├── health-check.sh
 │   │   ├── migrate.sh
-│   │   └── rollback.sh
+│   │   ├── rollback.sh
+│   │   ├── sentry-release.js
+│   │   ├── setup-cloudwatch.sh
+│   │   └── validate-iam.sh
 │   ├── docs
 │   │   ├── auto-doc-updater.js
 │   │   ├── doc-alerts.js
 │   │   ├── doc-dashboard.js
 │   │   ├── doc-lifecycle.js
 │   │   └── validate-documentation.js
-│   ├── generate-postman.js
-│   ├── generate-swagger-json.js
 │   ├── monitoring
 │   │   ├── alert-config.js
 │   │   ├── generate-reports.js
 │   │   ├── health-monitor.js
 │   │   └── setup-monitoring.js
+│   ├── security
+│   │   └── validate-iam-policies.sh
 │   ├── setup
 │   │   ├── env-manager.js
 │   │   ├── post-install.js
-│   │   └── quick-start.sh
-│   ├── switch-environment.sh
-│   ├── test-cloudinary-connection.js
-│   ├── test-db-connection.js
-│   ├── test-file-upload.js
+│   │   ├── quick-start.sh
+│   │   └── setup-waf.js
 │   ├── utilities
 │   │   ├── generate-docs.js
 │   │   ├── generate-postman.js
 │   │   ├── lint-fix.js
 │   │   ├── security-scan.js
-│   │   └── test-runner.js
+│   │   ├── test-runner.js
+│   │   └── validate-aws-policies.js
+│   ├── backup-scheduler.sh
+│   ├── create-indexes.js
+│   ├── deploy-hybrid.sh
+│   ├── generate-postman.js
+│   ├── generate-swagger-json.js
+│   ├── switch-environment.sh
+│   ├── test-cloudinary-connection.js
+│   ├── test-db-connection.js
+│   ├── test-file-upload.js
 │   ├── verify-deployment.sh
 │   ├── verify-phase2-docs.sh
 │   └── verify-phase3-docs.sh
 ├── security
+│   ├── compliance
+│   │   ├── cis-benchmark.yaml
+│   │   └── gdpr-compliance.md
+│   ├── encryption
+│   │   ├── encryption-at-rest.md
+│   │   └── kms-keys.tf
 │   ├── policies
+│   │   ├── cloudfront
+│   │   │   ├── cloudfront-distribution-policy.json
+│   │   │   ├── cloudfront-origin-access-identity.json
+│   │   │   └── cloudfront-service-role-policy.json
+│   │   ├── iam
+│   │   │   ├── application-cloudfront-policy.json
+│   │   │   ├── application-s3-policy.json
+│   │   │   ├── application-ses-policy.json
+│   │   │   ├── backup-policy.json
+│   │   │   ├── ecr-access-policy.json
+│   │   │   ├── eks-cluster-policy.json
+│   │   │   ├── rds-access-policy.json
+│   │   │   └── secrets-manager-policy.json
+│   │   ├── s3
+│   │   │   ├── s3-application-policy.json
+│   │   │   ├── s3-backup-policy.json
+│   │   │   └── s3-cloudfront-access-policy.json
 │   │   ├── access-control.json
 │   │   ├── cors-policy.json
 │   │   ├── data-retention.json
@@ -218,27 +398,27 @@
 │   │   ├── rate-limit-policy.json
 │   │   └── rbac-policy.json
 │   ├── scanning
+│   │   ├── .snyk
 │   │   ├── security-rules.js
 │   │   └── sonarqube.properties
 │   └── ssl
 │       ├── ca-bundle
 │       └── certificates
-│           ├── README.md
 │           ├── dev
 │           │   ├── ca.crt
 │           │   ├── server.crt
 │           │   └── server.key
-│           ├── generate-certificates.sh
 │           ├── production
 │           ├── scripts
 │           │   ├── deploy-certificates.sh
 │           │   ├── renew-certificates.sh
 │           │   └── validate-certificates.sh
-│           └── staging
+│           ├── staging
+│           ├── README.md
+│           └── generate-certificates.sh
 ├── src
 │   ├── api
 │   │   └── v1
-│   │       ├── index.js
 │   │       ├── platform
 │   │       │   ├── onboarding
 │   │       │   │   ├── controllers
@@ -572,83 +752,90 @@
 │   │       │       └── validators
 │   │       │           ├── school.validator.js
 │   │       │           └── user.validator.js
-│   │       └── shared
-│   │           ├── communication
-│   │           │   ├── controllers
-│   │           │   │   ├── announcements.controller.js
-│   │           │   │   ├── chat.controller.js
-│   │           │   │   └── messages.controller.js
-│   │           │   ├── dto
-│   │           │   │   ├── announcement.dto.js
-│   │           │   │   └── message.dto.js
-│   │           │   ├── routes
-│   │           │   │   └── communication.routes.js
-│   │           │   └── services
-│   │           │       ├── announcement.service.js
-│   │           │       ├── chat.service.js
-│   │           │       └── messaging.service.js
-│   │           ├── files
-│   │           │   ├── controllers
-│   │           │   │   ├── storage.controller.js
-│   │           │   │   └── upload.controller.js
-│   │           │   ├── dto
-│   │           │   │   └── file.dto.js
-│   │           │   ├── routes
-│   │           │   │   └── files.routes.js
-│   │           │   └── services
-│   │           │       ├── cloudinary-upload.service.js
-│   │           │       ├── file-storage.service.js
-│   │           │       ├── file-upload.service.js
-│   │           │       └── file-validation.service.js
-│   │           ├── notifications
-│   │           │   ├── controllers
-│   │           │   │   ├── email.controller.js
-│   │           │   │   ├── push.controller.js
-│   │           │   │   └── sms.controller.js
-│   │           │   ├── dto
-│   │           │   │   └── notification.dto.js
-│   │           │   ├── routes
-│   │           │   │   └── notifications.routes.js
-│   │           │   ├── services
-│   │           │   │   ├── email.service.js
-│   │           │   │   ├── notification.service.js
-│   │           │   │   ├── push.service.js
-│   │           │   │   └── sms.service.js
-│   │           │   └── templates
-│   │           │       ├── email
-│   │           │       ├── push
-│   │           │       └── sms
-│   │           ├── reports
-│   │           │   ├── controllers
-│   │           │   │   ├── custom-reports.controller.js
-│   │           │   │   ├── report-generator.controller.js
-│   │           │   │   └── scheduled-reports.controller.js
-│   │           │   ├── dto
-│   │           │   │   └── report.dto.js
-│   │           │   ├── routes
-│   │           │   │   └── reports.routes.js
-│   │           │   ├── services
-│   │           │   │   ├── chart-generator.service.js
-│   │           │   │   ├── excel-generator.service.js
-│   │           │   │   ├── pdf-generator.service.js
-│   │           │   │   └── report-generator.service.js
-│   │           │   └── templates
-│   │           │       ├── excel
-│   │           │       └── pdf
-│   │           └── search
-│   │               ├── controllers
-│   │               │   └── search.controller.js
-│   │               ├── dto
-│   │               │   └── search.dto.js
-│   │               ├── routes
-│   │               │   └── search.routes.js
-│   │               └── services
-│   │                   ├── elasticsearch.service.js
-│   │                   └── search.service.js
-│   ├── app.js
+│   │       ├── shared
+│   │       │   ├── communication
+│   │       │   │   ├── controllers
+│   │       │   │   │   ├── announcements.controller.js
+│   │       │   │   │   ├── chat.controller.js
+│   │       │   │   │   └── messages.controller.js
+│   │       │   │   ├── dto
+│   │       │   │   │   ├── announcement.dto.js
+│   │       │   │   │   └── message.dto.js
+│   │       │   │   ├── routes
+│   │       │   │   │   └── communication.routes.js
+│   │       │   │   └── services
+│   │       │   │       ├── announcement.service.js
+│   │       │   │       ├── chat.service.js
+│   │       │   │       └── messaging.service.js
+│   │       │   ├── controllers
+│   │       │   │   └── health.controller.js
+│   │       │   ├── files
+│   │       │   │   ├── controllers
+│   │       │   │   │   ├── asset-url.controller.js
+│   │       │   │   │   ├── static-assets.controller.js
+│   │       │   │   │   ├── storage.controller.js
+│   │       │   │   │   └── upload.controller.js
+│   │       │   │   ├── dto
+│   │       │   │   │   └── file.dto.js
+│   │       │   │   ├── routes
+│   │       │   │   │   ├── files.routes.js
+│   │       │   │   │   └── static-assets.routes.js
+│   │       │   │   └── services
+│   │       │   │       ├── cloudfront-asset.service.js
+│   │       │   │       ├── cloudinary-upload.service.js
+│   │       │   │       ├── file-storage.service.js
+│   │       │   │       ├── file-upload.service.js
+│   │       │   │       └── file-validation.service.js
+│   │       │   ├── notifications
+│   │       │   │   ├── controllers
+│   │       │   │   │   ├── email.controller.js
+│   │       │   │   │   ├── push.controller.js
+│   │       │   │   │   └── sms.controller.js
+│   │       │   │   ├── dto
+│   │       │   │   │   └── notification.dto.js
+│   │       │   │   ├── routes
+│   │       │   │   │   └── notifications.routes.js
+│   │       │   │   ├── services
+│   │       │   │   │   ├── email.service.js
+│   │       │   │   │   ├── notification.service.js
+│   │       │   │   │   ├── push.service.js
+│   │       │   │   │   └── sms.service.js
+│   │       │   │   └── templates
+│   │       │   │       ├── email
+│   │       │   │       ├── push
+│   │       │   │       └── sms
+│   │       │   ├── reports
+│   │       │   │   ├── controllers
+│   │       │   │   │   ├── custom-reports.controller.js
+│   │       │   │   │   ├── report-generator.controller.js
+│   │       │   │   │   └── scheduled-reports.controller.js
+│   │       │   │   ├── dto
+│   │       │   │   │   └── report.dto.js
+│   │       │   │   ├── routes
+│   │       │   │   │   └── reports.routes.js
+│   │       │   │   ├── services
+│   │       │   │   │   ├── chart-generator.service.js
+│   │       │   │   │   ├── excel-generator.service.js
+│   │       │   │   │   ├── pdf-generator.service.js
+│   │       │   │   │   └── report-generator.service.js
+│   │       │   │   └── templates
+│   │       │   │       ├── excel
+│   │       │   │       └── pdf
+│   │       │   └── search
+│   │       │       ├── controllers
+│   │       │       │   └── search.controller.js
+│   │       │       ├── dto
+│   │       │       │   └── search.dto.js
+│   │       │       ├── routes
+│   │       │       │   └── search.routes.js
+│   │       │       └── services
+│   │       │           ├── elasticsearch.service.js
+│   │       │           └── search.service.js
+│   │       └── index.js
 │   ├── core
 │   │   ├── analytics
 │   │   │   └── services
+│   │   │       ├── business-metrics.service.js
 │   │   │       └── file-analytics.service.js
 │   │   ├── audit
 │   │   │   └── services
@@ -657,27 +844,30 @@
 │   │   │   ├── guards
 │   │   │   │   ├── auth.guard.js
 │   │   │   │   └── role.guard.js
-│   │   │   ├── jwt-manager.js
 │   │   │   ├── services
 │   │   │   │   ├── jwt.service.js
 │   │   │   │   ├── password.service.js
 │   │   │   │   ├── session.service.js
 │   │   │   │   └── two-factor.service.js
-│   │   │   └── strategies
-│   │   │       ├── jwt.strategy.js
-│   │   │       ├── local.strategy.js
-│   │   │       └── oauth.strategy.js
+│   │   │   ├── strategies
+│   │   │   │   ├── jwt.strategy.js
+│   │   │   │   ├── local.strategy.js
+│   │   │   │   └── oauth.strategy.js
+│   │   │   └── jwt-manager.js
 │   │   ├── cache
 │   │   │   ├── decorators
 │   │   │   │   ├── cache-evict.decorator.js
 │   │   │   │   └── cacheable.decorator.js
 │   │   │   ├── services
+│   │   │   │   ├── .DS_Store
 │   │   │   │   ├── cache-manager.service.js
+│   │   │   │   ├── elasticache-tenant-cache.service.js
 │   │   │   │   ├── redis-cache.service.js
 │   │   │   │   └── unified-cache.service.js
-│   │   │   └── strategies
-│   │   │       ├── lru-cache.strategy.js
-│   │   │       └── ttl-cache.strategy.js
+│   │   │   ├── strategies
+│   │   │   │   ├── lru-cache.strategy.js
+│   │   │   │   └── ttl-cache.strategy.js
+│   │   │   └── .DS_Store
 │   │   ├── events
 │   │   │   ├── emitters
 │   │   │   │   ├── domain-event.emitter.js
@@ -702,7 +892,9 @@
 │   │   │   └── user.factory.js
 │   │   ├── monitoring
 │   │   │   └── services
+│   │   │       ├── cloudwatch.service.js
 │   │   │       ├── health.service.js
+│   │   │       ├── metrics-service.js
 │   │   │       └── metrics.service.js
 │   │   ├── products
 │   │   │   ├── factories
@@ -863,7 +1055,6 @@
 │   │   │   ├── subscription-status.enum.js
 │   │   │   └── user-status.enum.js
 │   │   ├── models
-│   │   │   ├── feature-flag.model.js
 │   │   │   ├── platform
 │   │   │   │   ├── billing.model.js
 │   │   │   │   ├── client-version.model.js
@@ -905,11 +1096,12 @@
 │   │   │   │   ├── role.model.js
 │   │   │   │   ├── school.model.js
 │   │   │   │   └── user.model.js
-│   │   │   └── shared
-│   │   │       ├── audit-log.model.js
-│   │   │       ├── file.model.js
-│   │   │       ├── notification.model.js
-│   │   │       └── session.model.js
+│   │   │   ├── shared
+│   │   │   │   ├── audit-log.model.js
+│   │   │   │   ├── file.model.js
+│   │   │   │   ├── notification.model.js
+│   │   │   │   └── session.model.js
+│   │   │   └── feature-flag.model.js
 │   │   └── value-objects
 │   │       ├── address.vo.js
 │   │       ├── date-range.vo.js
@@ -917,11 +1109,11 @@
 │   │       ├── money.vo.js
 │   │       ├── percentage.vo.js
 │   │       └── phone.vo.js
-│   ├── index.js
 │   ├── infrastructure
 │   │   ├── cache
 │   │   │   ├── cache-invalidation.js
 │   │   │   ├── cache-strategies.js
+│   │   │   ├── elasticache-redis.js
 │   │   │   ├── memory-cache.js
 │   │   │   └── redis-cache.js
 │   │   ├── database
@@ -930,20 +1122,31 @@
 │   │   │   │   ├── mappings.js
 │   │   │   │   └── search-indexes.js
 │   │   │   ├── mongodb
+│   │   │   │   ├── migrations
+│   │   │   │   │   ├── aws
+│   │   │   │   │   │   ├── atlas-connection.js
+│   │   │   │   │   │   ├── aws-config-validator.js
+│   │   │   │   │   │   └── aws-migration-runner.js
+│   │   │   │   │   ├── rollback
+│   │   │   │   │   │   └── rollback-manager.js
+│   │   │   │   │   ├── versions
+│   │   │   │   │   │   ├── 001_initial_aws_schema.js
+│   │   │   │   │   │   └── 002_aws_indexes.js
+│   │   │   │   │   └── run.js
+│   │   │   │   ├── .DS_Store
 │   │   │   │   ├── 001_initial_schema.js
 │   │   │   │   ├── 002_add_subscription.js
 │   │   │   │   ├── 003_add_audit_logs.js
-│   │   │   │   ├── indexes.js
-│   │   │   │   └── migrations
-│   │   │   │       └── run.js
+│   │   │   │   └── indexes.js
 │   │   │   ├── redis
 │   │   │   │   ├── config.js
 │   │   │   │   └── connection.js
-│   │   │   └── seeds
-│   │   │       ├── platform-seed.js
-│   │   │       ├── run.js
-│   │   │       ├── school-seed.js
-│   │   │       └── user-seed.js
+│   │   │   ├── seeds
+│   │   │   │   ├── platform-seed.js
+│   │   │   │   ├── run.js
+│   │   │   │   ├── school-seed.js
+│   │   │   │   └── user-seed.js
+│   │   │   └── .DS_Store
 │   │   ├── external
 │   │   │   ├── analytics
 │   │   │   │   ├── google-analytics.client.js
@@ -963,6 +1166,7 @@
 │   │   │   └── storage
 │   │   │       ├── aws-s3.client.js
 │   │   │       ├── cloudinary.client.js
+│   │   │       ├── enhanced-s3.service.js
 │   │   │       └── google-drive.client.js
 │   │   ├── logging
 │   │   │   ├── audit-logger.js
@@ -971,13 +1175,18 @@
 │   │   │   └── winston.config.js
 │   │   ├── monitoring
 │   │   │   ├── alerts.js
+│   │   │   ├── cloudfront-monitor.js
+│   │   │   ├── elasticache-monitor.js
 │   │   │   ├── health-check.js
 │   │   │   ├── metrics.js
-│   │   │   └── performance.js
+│   │   │   ├── performance.js
+│   │   │   ├── sentry-business-metrics.js
+│   │   │   ├── sentry-performance.js
+│   │   │   └── sentry.config.js
 │   │   ├── queue
 │   │   │   ├── bull
-│   │   │   │   ├── connection.js
-│   │   │   │   └── {processors}
+│   │   │   │   ├── {processors}
+│   │   │   │   └── connection.js
 │   │   │   ├── jobs
 │   │   │   │   ├── data-backup.job.js
 │   │   │   │   ├── email.job.js
@@ -1018,157 +1227,169 @@
 │   │   ├── platform.routes.js
 │   │   ├── products.routes.js
 │   │   ├── school.routes.js
-│   │   └── shared.routes.js
-│   ├── server.js
-│   └── shared
-│       ├── config
-│       │   ├── app.config.js
-│       │   ├── cache.config.js
-│       │   ├── cloudinary.config.js
-│       │   ├── database.config.js
-│       │   ├── email.config.js
-│       │   ├── environments
-│       │   │   ├── base.config.js
-│       │   │   ├── development.config.js
-│       │   │   ├── local.config.js
-│       │   │   ├── production.config.js
-│       │   │   ├── staging.config.js
-│       │   │   └── test.config.js
-│       │   ├── index.js
-│       │   ├── payment.config.js
-│       │   ├── products.config.js
-│       │   ├── queue.config.js
-│       │   ├── security.config.js
-│       │   ├── storage.config.js
-│       │   ├── subscription.config.js
-│       │   ├── tenant.config.js
-│       │   └── versions.config.js
-│       ├── constants
-│       │   ├── business-rules.js
-│       │   ├── error-codes.js
-│       │   ├── feature-flags.js
-│       │   ├── http-status.js
-│       │   ├── success-messages.js
-│       │   └── validation-rules.js
-│       ├── database
-│       │   └── connection-manager.js
-│       ├── decorators
-│       │   ├── audit.decorator.js
-│       │   ├── cache.decorator.js
-│       │   ├── rate-limit.decorator.js
-│       │   ├── retry.decorator.js
-│       │   ├── timeout.decorator.js
-│       │   └── transaction.decorator.js
-│       ├── exceptions
-│       │   ├── authentication.exception.js
-│       │   ├── authorization.exception.js
-│       │   ├── base.exception.js
-│       │   ├── business.exception.js
-│       │   ├── external-service.exception.js
-│       │   ├── subscription.exception.js
-│       │   └── validation.exception.js
-│       ├── i18n
-│       │   ├── config.js
-│       │   ├── locales
-│       │   │   ├── en
-│       │   │   │   ├── academic.json
-│       │   │   │   ├── auth.json
-│       │   │   │   ├── common.json
-│       │   │   │   ├── errors.json
-│       │   │   │   ├── finance.json
-│       │   │   │   ├── hr.json
-│       │   │   │   ├── library.json
-│       │   │   │   ├── subscription.json
-│       │   │   │   └── transport.json
-│       │   │   └── hi
-│       │   │       ├── academic.json
-│       │   │       ├── auth.json
-│       │   │       ├── common.json
-│       │   │       ├── errors.json
-│       │   │       ├── finance.json
-│       │   │       ├── hr.json
-│       │   │       ├── library.json
-│       │   │       ├── subscription.json
-│       │   │       └── transport.json
-│       │   └── middleware.js
-│       ├── middleware
-│       │   ├── access-control
-│       │   │   ├── permission-check.middleware.js
-│       │   │   ├── product-access.middleware.js
-│       │   │   ├── role-guard.middleware.js
-│       │   │   └── subscription-gate.middleware.js
-│       │   ├── auth
-│       │   │   ├── api-key.middleware.js
-│       │   │   ├── jwt.middleware.js
-│       │   │   ├── passport.middleware.js
-│       │   │   └── session.middleware.js
-│       │   ├── error-handling
-│       │   │   ├── async-error.middleware.js
-│       │   │   ├── error-handler.middleware.js
-│       │   │   ├── not-found.middleware.js
-│       │   │   └── validation-error.middleware.js
-│       │   ├── global
-│       │   │   ├── compression.middleware.js
-│       │   │   ├── cors.middleware.js
-│       │   │   ├── helmet.middleware.js
-│       │   │   ├── request-id.middleware.js
-│       │   │   └── request-logger.middleware.js
-│       │   ├── rate-limiting
-│       │   │   ├── global-rate-limit.middleware.js
-│       │   │   ├── ip-rate-limit.middleware.js
-│       │   │   └── user-rate-limit.middleware.js
-│       │   ├── security
-│       │   │   └── enhanced-security.middleware.js
-│       │   ├── tenant
-│       │   │   ├── multi-tenant.middleware.js
-│       │   │   └── school-context.middleware.js
-│       │   └── validation
-│       │       ├── dto-validation.middleware.js
-│       │       ├── sanitization.middleware.js
-│       │       └── schema-validation.middleware.js
-│       ├── types
-│       │   ├── api.types.js
-│       │   ├── auth.types.js
-│       │   ├── common.types.js
-│       │   ├── product.types.js
-│       │   └── subscription.types.js
-│       └── utils
-│           ├── core
-│           │   ├── catchAsync.js
-│           │   ├── graceful-shutdown.js
-│           │   ├── logger.js
-│           │   ├── morgan.js
-│           │   ├── passport.js
-│           │   └── responseFormatter.js
-│           ├── formatters
-│           │   ├── currency.formatter.js
-│           │   ├── date.formatter.js
-│           │   ├── number.formatter.js
-│           │   └── response.formatter.js
-│           ├── generators
-│           │   ├── id.generator.js
-│           │   ├── otp.generator.js
-│           │   ├── password.generator.js
-│           │   └── token.generator.js
-│           ├── helpers
-│           │   ├── array.helper.js
-│           │   ├── async.helper.js
-│           │   ├── date.helper.js
-│           │   ├── math.helper.js
-│           │   ├── object.helper.js
-│           │   ├── pagination.helper.js
-│           │   └── string.helper.js
-│           ├── transformers
-│           │   ├── data.transformer.js
-│           │   ├── pagination.transformer.js
-│           │   └── search.transformer.js
-│           ├── validators
-│           │   ├── business-rules.validator.js
-│           │   ├── email.validator.js
-│           │   ├── password.validator.js
-│           │   └── phone.validator.js
-│           └── version.util.js
-├── structure.txt
+│   │   ├── shared.routes.js
+│   │   └── test-sentry.routes.js
+│   ├── shared
+│   │   ├── config
+│   │   │   ├── environments
+│   │   │   │   ├── base.config.js
+│   │   │   │   ├── development.config.js
+│   │   │   │   ├── local.config.js
+│   │   │   │   ├── production.config.js
+│   │   │   │   ├── staging.config.js
+│   │   │   │   └── test.config.js
+│   │   │   ├── app.config.js
+│   │   │   ├── cache.config.js
+│   │   │   ├── cloudfront.config.js
+│   │   │   ├── cloudinary.config.js
+│   │   │   ├── database.config.js
+│   │   │   ├── email.config.js
+│   │   │   ├── index.js
+│   │   │   ├── payment.config.js
+│   │   │   ├── products.config.js
+│   │   │   ├── queue.config.js
+│   │   │   ├── security.config.js
+│   │   │   ├── storage.config.js
+│   │   │   ├── subscription.config.js
+│   │   │   ├── tenant.config.js
+│   │   │   └── versions.config.js
+│   │   ├── constants
+│   │   │   ├── business-rules.js
+│   │   │   ├── error-codes.js
+│   │   │   ├── feature-flags.js
+│   │   │   ├── http-status.js
+│   │   │   ├── success-messages.js
+│   │   │   └── validation-rules.js
+│   │   ├── database
+│   │   │   └── connection-manager.js
+│   │   ├── decorators
+│   │   │   ├── audit.decorator.js
+│   │   │   ├── cache.decorator.js
+│   │   │   ├── rate-limit.decorator.js
+│   │   │   ├── retry.decorator.js
+│   │   │   ├── timeout.decorator.js
+│   │   │   └── transaction.decorator.js
+│   │   ├── exceptions
+│   │   │   ├── authentication.exception.js
+│   │   │   ├── authorization.exception.js
+│   │   │   ├── base.exception.js
+│   │   │   ├── business.exception.js
+│   │   │   ├── external-service.exception.js
+│   │   │   ├── sentry-aware.exception.js
+│   │   │   ├── subscription.exception.js
+│   │   │   └── validation.exception.js
+│   │   ├── i18n
+│   │   │   ├── locales
+│   │   │   │   ├── en
+│   │   │   │   │   ├── academic.json
+│   │   │   │   │   ├── auth.json
+│   │   │   │   │   ├── common.json
+│   │   │   │   │   ├── errors.json
+│   │   │   │   │   ├── finance.json
+│   │   │   │   │   ├── hr.json
+│   │   │   │   │   ├── library.json
+│   │   │   │   │   ├── subscription.json
+│   │   │   │   │   └── transport.json
+│   │   │   │   └── hi
+│   │   │   │       ├── academic.json
+│   │   │   │       ├── auth.json
+│   │   │   │       ├── common.json
+│   │   │   │       ├── errors.json
+│   │   │   │       ├── finance.json
+│   │   │   │       ├── hr.json
+│   │   │   │       ├── library.json
+│   │   │   │       ├── subscription.json
+│   │   │   │       └── transport.json
+│   │   │   ├── config.js
+│   │   │   └── middleware.js
+│   │   ├── middleware
+│   │   │   ├── access-control
+│   │   │   │   ├── permission-check.middleware.js
+│   │   │   │   ├── product-access.middleware.js
+│   │   │   │   ├── role-guard.middleware.js
+│   │   │   │   └── subscription-gate.middleware.js
+│   │   │   ├── auth
+│   │   │   │   ├── api-key.middleware.js
+│   │   │   │   ├── jwt.middleware.js
+│   │   │   │   ├── passport.middleware.js
+│   │   │   │   └── session.middleware.js
+│   │   │   ├── error-handling
+│   │   │   │   ├── async-error.middleware.js
+│   │   │   │   ├── error-handler.middleware.js
+│   │   │   │   ├── not-found.middleware.js
+│   │   │   │   ├── sentry-context.middleware.js
+│   │   │   │   └── validation-error.middleware.js
+│   │   │   ├── global
+│   │   │   │   ├── compression.middleware.js
+│   │   │   │   ├── cors.middleware.js
+│   │   │   │   ├── helmet.middleware.js
+│   │   │   │   ├── request-id.middleware.js
+│   │   │   │   └── request-logger.middleware.js
+│   │   │   ├── rate-limiting
+│   │   │   │   ├── global-rate-limit.middleware.js
+│   │   │   │   ├── ip-rate-limit.middleware.js
+│   │   │   │   └── user-rate-limit.middleware.js
+│   │   │   ├── security
+│   │   │   │   └── enhanced-security.middleware.js
+│   │   │   ├── tenant
+│   │   │   │   ├── multi-tenant.middleware.js
+│   │   │   │   └── school-context.middleware.js
+│   │   │   ├── validation
+│   │   │   │   ├── dto-validation.middleware.js
+│   │   │   │   ├── sanitization.middleware.js
+│   │   │   │   └── schema-validation.middleware.js
+│   │   │   ├── asset-performance.middleware.js
+│   │   │   ├── metrics-exporter.middleware.js
+│   │   │   ├── request-metrics.middleware.js
+│   │   │   └── tracing.middleware.js
+│   │   ├── services
+│   │   │   └── cloudfront-invalidation.service.js
+│   │   ├── types
+│   │   │   ├── api.types.js
+│   │   │   ├── auth.types.js
+│   │   │   ├── common.types.js
+│   │   │   ├── product.types.js
+│   │   │   └── subscription.types.js
+│   │   └── utils
+│   │       ├── core
+│   │       │   ├── catchAsync.js
+│   │       │   ├── graceful-shutdown.js
+│   │       │   ├── logger.js
+│   │       │   ├── morgan.js
+│   │       │   ├── passport.js
+│   │       │   └── responseFormatter.js
+│   │       ├── formatters
+│   │       │   ├── currency.formatter.js
+│   │       │   ├── date.formatter.js
+│   │       │   ├── number.formatter.js
+│   │       │   └── response.formatter.js
+│   │       ├── generators
+│   │       │   ├── id.generator.js
+│   │       │   ├── otp.generator.js
+│   │       │   ├── password.generator.js
+│   │       │   └── token.generator.js
+│   │       ├── helpers
+│   │       │   ├── array.helper.js
+│   │       │   ├── asset-url.util.js
+│   │       │   ├── async.helper.js
+│   │       │   ├── date.helper.js
+│   │       │   ├── math.helper.js
+│   │       │   ├── object.helper.js
+│   │       │   ├── pagination.helper.js
+│   │       │   └── string.helper.js
+│   │       ├── transformers
+│   │       │   ├── data.transformer.js
+│   │       │   ├── pagination.transformer.js
+│   │       │   └── search.transformer.js
+│   │       ├── validators
+│   │       │   ├── business-rules.validator.js
+│   │       │   ├── email.validator.js
+│   │       │   ├── password.validator.js
+│   │       │   └── phone.validator.js
+│   │       └── version.util.js
+│   ├── app.js
+│   ├── index.js
+│   └── server.js
 ├── temp
 │   ├── cache
 │   ├── exports
@@ -1210,7 +1431,6 @@
 │   │   └── mock.helper.js
 │   ├── integration
 │   │   ├── api
-│   │   │   ├── auth.integration.test.js
 │   │   │   ├── platform
 │   │   │   │   ├── onboarding
 │   │   │   │   ├── subscription
@@ -1222,13 +1442,14 @@
 │   │   │   │   ├── library
 │   │   │   │   ├── parent
 │   │   │   │   └── transport
-│   │   │   ├── products.integration.test.js
 │   │   │   ├── school
 │   │   │   │   ├── auth
 │   │   │   │   ├── dashboard
 │   │   │   │   └── management
-│   │   │   ├── school-management.integration.test.js
 │   │   │   ├── shared
+│   │   │   ├── auth.integration.test.js
+│   │   │   ├── products.integration.test.js
+│   │   │   ├── school-management.integration.test.js
 │   │   │   └── subscription.integration.test.js
 │   │   ├── core
 │   │   │   ├── auth
@@ -1322,13 +1543,50 @@
 │       │   ├── cache
 │       │   ├── database
 │       │   ├── external
-│       │   └── queue
+│       │   ├── queue
+│       │   └── sentry.test.js
 │       └── shared
 │           ├── exceptions
 │           ├── middleware
 │           └── utils
+├── .DS_Store
+├── .dockerignore
+├── .editorconfig
+├── .env
+├── .env.example
+├── .env.local
+├── .eslintignore
+├── .eslintrc.cjs
+├── .gitignore
+├── .node-version
+├── .nvmrc
+├── .prettierignore
+├── .prettierrc
+├── .prettierrc.js
+├── .vercelignore
+├── CHANGELOG.md
+├── CODE_OF_CONDUCT.md
+├── CONTRIBUTING.md
+├── LICENSE
+├── README.md
+├── SECURITY.md
+├── babel.config.js
+├── commitlint.config.js
+├── dump.rdb
+├── husky.config.js
+├── jest.config.js
+├── jsconfig.json
+├── jsdoc.conf.json
+├── lint-staged.config.js
+├── netlify.toml
+├── nodemon.json
+├── package-lock.json
+├── package.json
+├── projectStructure.txt
+├── railway.json
+├── render.yaml
 ├── tsconfig.json
 ├── vercel.json
 └── yarn.lock
 
-441 directories, 891 files
+483 directories, 1107 files

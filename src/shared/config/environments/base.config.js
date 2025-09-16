@@ -8,10 +8,10 @@ import os from "os";
 const detectDeploymentEnvironment = () => {
   const isServerless = Boolean(
     process.env.DEPLOYMENT_TYPE === "serverless" ||
-      process.env.VERCEL ||
-      process.env.NETLIFY ||
-      process.env.AWS_LAMBDA_FUNCTION_NAME ||
-      process.env.FUNCTION_NAME, // Google Cloud Functions
+    process.env.VERCEL ||
+    process.env.NETLIFY ||
+    process.env.AWS_LAMBDA_FUNCTION_NAME ||
+    process.env.FUNCTION_NAME, // Google Cloud Functions
   );
 
   const platform = process.env.VERCEL
@@ -439,6 +439,7 @@ const baseConfig = {
     secretAccessKey: process.env.AWS_SECRET_ACCESS_KEY,
     s3: {
       bucket: process.env.AWS_S3_BUCKET,
+      staticBucket: process.env.AWS_S3_STATIC_BUCKET || `${process.env.AWS_S3_BUCKET}-static`,
       region:
         process.env.AWS_S3_REGION || process.env.AWS_REGION || "us-east-1",
       signedUrlExpiresIn:
@@ -453,11 +454,28 @@ const baseConfig = {
       fromEmail: process.env.SES_FROM_EMAIL,
       replyToEmail: process.env.SES_REPLY_TO_EMAIL,
     },
+    staticAssets: {
+      folder: process.env.S3_STATIC_ASSETS_FOLDER || "assets",
+      cacheDuration: parseInt(process.env.S3_CACHE_DURATION) || 31536000, // 1 year
+      enableCompression: process.env.S3_ENABLE_COMPRESSION === "true",
+      enableVersioning: process.env.S3_ENABLE_VERSIONING !== "false"
+    },
     cloudWatch: {
       enabled: process.env.CLOUDWATCH_ENABLED === "true",
       logGroupName: process.env.CLOUDWATCH_LOG_GROUP,
       logStreamName: process.env.CLOUDWATCH_LOG_STREAM,
       namespace: process.env.CLOUDWATCH_NAMESPACE || "SchoolERP",
+    },
+    cloudfront: {
+      distributionId: process.env.CLOUDFRONT_DISTRIBUTION_ID,
+      domain: process.env.CLOUDFRONT_DOMAIN || process.env.CDN_DOMAIN,
+      enabled: process.env.CLOUDFRONT_ENABLED === "true",
+      invalidationPaths: (process.env.CLOUDFRONT_INVALIDATION_PATHS || "/*").split(","),
+      cacheDuration: {
+        assets: parseInt(process.env.CLOUDFRONT_ASSETS_CACHE) || 31536000, // 1 year
+        images: parseInt(process.env.CLOUDFRONT_IMAGES_CACHE) || 2592000,  // 30 days
+        html: parseInt(process.env.CLOUDFRONT_HTML_CACHE) || 86400,        // 1 day
+      },
     },
   },
 

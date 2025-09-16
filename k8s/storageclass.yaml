@@ -1,0 +1,83 @@
+# k8s/storageclass.yaml - Storage Classes for School ERP
+apiVersion: storage.k8s.io/v1
+kind: StorageClass
+metadata:
+  name: school-erp-fast-ssd
+  labels:
+    app: school-erp
+    component: storage
+  annotations:
+    storageclass.kubernetes.io/is-default-class: "false"
+provisioner: ebs.csi.aws.com
+parameters:
+  type: gp3
+  iops: "3000"
+  throughput: "125"
+  encrypted: "true"
+  kmsKeyId: "alias/aws/ebs"
+reclaimPolicy: Delete
+allowVolumeExpansion: true
+volumeBindingMode: WaitForFirstConsumer
+mountOptions:
+- debug
+
+---
+# High-performance storage for databases
+apiVersion: storage.k8s.io/v1
+kind: StorageClass
+metadata:
+  name: school-erp-database-ssd
+  labels:
+    app: school-erp
+    component: database-storage
+  annotations:
+    storageclass.kubernetes.io/is-default-class: "false"
+provisioner: ebs.csi.aws.com
+parameters:
+  type: io2
+  iops: "10000"
+  encrypted: "true"
+  kmsKeyId: "alias/aws/ebs"
+reclaimPolicy: Retain  # Keep data for databases
+allowVolumeExpansion: true
+volumeBindingMode: WaitForFirstConsumer
+
+---
+# Standard storage for file uploads
+apiVersion: storage.k8s.io/v1
+kind: StorageClass
+metadata:
+  name: school-erp-files-standard
+  labels:
+    app: school-erp
+    component: files-storage
+provisioner: efs.csi.aws.com
+parameters:
+  provisioningMode: efs-utils
+  fileSystemId: fs-12345678  # Replace with your EFS filesystem ID
+  directoryPerms: "0755"
+  basePath: "/school-erp"
+reclaimPolicy: Retain
+allowVolumeExpansion: true
+volumeBindingMode: Immediate
+mountOptions:
+- tls
+- accesspoint=fsap-12345678  # Replace with your access point
+
+---
+# Backup storage class
+apiVersion: storage.k8s.io/v1
+kind: StorageClass
+metadata:
+  name: school-erp-backup-storage
+  labels:
+    app: school-erp
+    component: backup-storage
+provisioner: ebs.csi.aws.com
+parameters:
+  type: st1  # Throughput Optimized HDD - cost effective for backups
+  encrypted: "true"
+  kmsKeyId: "alias/aws/ebs"
+reclaimPolicy: Retain
+allowVolumeExpansion: true
+volumeBindingMode: WaitForFirstConsumer

@@ -1,0 +1,48 @@
+# buildspecs/unit-tests.yml
+version: 0.2
+
+phases:
+  install:
+    runtime-versions:
+      nodejs: 18
+    commands:
+      - echo "Installing dependencies for unit tests..."
+      - npm ci --prefer-offline --no-audit
+
+  pre_build:
+    commands:
+      - echo "Setting up test environment..."
+      - export NODE_ENV=test
+      - export CI=true
+      - mkdir -p coverage reports
+
+  build:
+    commands:
+      - echo "Running unit tests with coverage..."
+      - npm run test:ci -- --coverage --testResultsProcessor=jest-junit --coverageReporters=text-lcov --coverageReporters=html --coverageReporters=json
+      
+      - echo "Generating test reports..."
+      - npm run test:unit -- --reporters=default --reporters=jest-junit
+
+  post_build:
+    commands:
+      - echo "Unit tests completed"
+      - ls -la coverage/
+      - ls -la reports/
+
+artifacts:
+  files:
+    - 'coverage/**/*'
+    - 'reports/**/*'
+  name: test-results
+
+reports:
+  jest-reports:
+    files:
+      - 'reports/junit.xml'
+    file-format: 'JUNITXML'
+    
+  code-coverage:
+    files:
+      - 'coverage/lcov.info'
+    file-format: 'LCOV'

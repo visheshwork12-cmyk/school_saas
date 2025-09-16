@@ -1,0 +1,154 @@
+# k8s/backup-schedule.yaml - Velero Backup Schedules for School ERP
+apiVersion: velero.io/v1
+kind: Schedule
+metadata:
+  name: school-erp-daily-backup
+  namespace: velero
+  labels:
+    app: velero
+    component: backup-schedule
+spec:
+  # Daily backup at 2 AM UTC
+  schedule: "0 2 * * *"
+  template:
+    # Backup retention - 30 days
+    ttl: 720h0m0s
+    
+    # Include specific namespaces
+    includedNamespaces:
+    - school-erp
+    - school-erp-staging
+    
+    # Exclude certain resources
+    excludedResources:
+    - events
+    - events.events.k8s.io
+    
+    # Include cluster-scoped resources
+    includeClusterResources: true
+    
+    # Snapshot persistent volumes
+    snapshotVolumes: true
+    
+    # Labels to add to backup
+    labels:
+      backup-type: daily
+      app: school-erp
+      environment: production
+    
+    # Hooks for database backup
+    hooks:
+      resources:
+      - name: mongodb-backup-hook
+        includedNamespaces:
+        - school-erp
+        labelSelector:
+          matchLabels:
+            app: mongodb
+        pre:
+        - exec:
+            command:
+            - /bin/bash
+            - -c
+            - mongodump --host localhost:27017 --out /backup/$(date +%Y%m%d_%H%M%S)
+            container: mongodb
+        post:
+        - exec:
+            command:
+            - /bin/bash
+            - -c
+            - rm -rf /backup/$(date -d '7 days ago' +%Y%m%d_*)
+            container: mongodb
+
+---
+# Weekly full backup
+apiVersion: velero.io/v1
+kind: Schedule
+metadata:
+  name: school-erp-weekly-backup
+  namespace: velero
+  labels:
+    app: velero
+    component: backup-schedule
+spec:
+  # Weekly backup every Sunday at 1 AM UTC
+  schedule: "0 1 * * 0"
+  template:
+    # Extended retention for weekly backups - 12 weeks
+    ttl: 2016h0m0s
+    
+    # Include all namespaces for full backup
+    includedNamespaces:
+    - school-erp
+    - school-erp-staging
+    - school-erp-monitoring
+    
+    includeClusterResources: true
+    snapshotVolumes: true
+    
+    labels:
+      backup-type: weekly
+      app: school-erp
+      environment: production
+    
+    # Store in different location for long-term retention
+    storageLocation: school-erp-backup-weekly
+
+---
+# Emergency backup (on-demand)
+apiVersion: velero.io/v1
+kind: Schedule
+metadata:
+  name: school-erp-emergency-backup
+  namespace: velero
+  labels:
+    app: velero
+    component: backup-schedule
+spec:
+  # Disabled by default - enable manually when needed
+  paused: true
+  schedule: "0 */6 * * *"  # Every 6 hours when enabled
+  template:
+    ttl: 168h0m0s  # 7 days retention
+    
+    includedNamespaces:
+    - school-erp
+    
+    includeClusterResources: false
+    snapshotVolumes: true
+    
+    labels:
+      backup-type: emergency
+      app: school-erp
+      triggered-by: manual
+
+---
+# Application-specific backup
+apiVersion: velero.io/v1
+kind: Schedule
+metadata:
+  name: school-erp-app-backup
+  namespace: velero
+  labels:
+    app: velero
+    component: backup-schedule
+spec:
+  # Twice daily for application data
+  schedule: "0 */12 * * *"
+  template:
+    ttl: 168h0m0s  # 7 days
+    
+    includedNamespaces:
+    - school-erp
+    
+    # Only backup application-specific resources
+    labelSelector:
+      matchLabels:
+        app: school-erp
+    
+    includeClusterResources: false
+    snapshotVolumes: true
+    
+    labels:
+      backup-type: application
+      app: school-erp

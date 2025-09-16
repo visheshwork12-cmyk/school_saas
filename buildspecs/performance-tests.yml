@@ -1,0 +1,39 @@
+# buildspecs/performance-tests.yml
+version: 0.2
+
+phases:
+  install:
+    runtime-versions:
+      nodejs: 18
+    commands:
+      - echo "Installing performance test dependencies..."
+      - npm ci --prefer-offline --no-audit
+      - npm install -g artillery k6
+
+  pre_build:
+    commands:
+      - echo "Setting up performance test environment..."
+      - mkdir -p reports
+      - echo "Waiting for application to be ready..."
+      - timeout 300 bash -c 'until curl -f $API_ENDPOINT/health; do sleep 10; done'
+
+  build:
+    commands:
+      - echo "Running load tests with Artillery..."
+      - artillery run tests/performance/load-test.yml --output reports/artillery-results.json
+      
+      - echo "Running stress tests with k6..."
+      - k6 run --out json=reports/k6-results.json tests/performance/stress-test.js
+      
+      - echo "Generating performance reports..."
+      - artillery report reports/artillery-results.json --output reports/artillery-report.html
+
+  post_build:
+    commands:
+      - echo "Performance tests completed"
+      - ls -la reports/
+
+artifacts:
+  files:
+    - 'reports/**/*'
+  name: performance-test-results
