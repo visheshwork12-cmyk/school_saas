@@ -1,0 +1,66 @@
+# config/build-deploy/service-config-template.yaml
+# Template configuration for build and deployment
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: build-deploy-config-template
+  namespace: default
+data:
+  default-config.yaml: |
+    # Service Configuration
+    serviceName: "school-erp-api"
+    version: "latest"
+    namespace: "default"
+    
+    # Build Configuration
+    buildContext: "./api"
+    dockerfile: "Dockerfile.api"
+    buildTarget: "production"
+    buildOptions:
+      useCache: true
+      cacheTypes: ["REGISTRY_CACHE", "LOCAL_CACHE"]
+      platform: "linux/amd64"
+      
+    # Deployment Configuration
+    deploymentStrategy: "blue-green"
+    
+    # Blue-Green Options
+    blueGreenOptions:
+      skipTests: false
+      monitorDuration: 300
+      keepBlue: false
+      
+    # Canary Options
+    canaryOptions:
+      port: 80
+      targetPort: 3000
+      maxWeight: 50
+      stepWeight: 10
+      iterations: 10
+      timeout: 1800
+      
+    # Rollback Configuration
+    enableRollbackAutomation: true
+    rollbackOptions:
+      configurations: ["HEALTH_BASED", "PERFORMANCE_BASED"]
+      cooldownPeriod: 300
+      maxRollbacks: 3
+      
+    # Environment-specific overrides
+    environments:
+      development:
+        deploymentStrategy: "rolling"
+        enableRollbackAutomation: false
+        buildTarget: "development"
+        
+      staging:
+        deploymentStrategy: "canary"
+        canaryOptions:
+          maxWeight: 25
+          stepWeight: 5
+          
+      production:
+        deploymentStrategy: "blue-green"
+        blueGreenOptions:
+          monitorDuration: 600
+          keepBlue: true

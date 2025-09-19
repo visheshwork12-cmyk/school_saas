@@ -3,6 +3,8 @@ import mongoose from "mongoose";
 import { logger } from "#utils/core/logger.js";
 import { AuditService } from "#core/audit/services/audit-log.service.js";
 import baseConfig from "#shared/config/environments/base.config.js";
+import { mongooseSanitizeMiddleware } from "#infrastructure/security/nosql-injection-protection.js";
+
 
 /**
  * MongoDB Atlas Connection Manager for AWS Environment

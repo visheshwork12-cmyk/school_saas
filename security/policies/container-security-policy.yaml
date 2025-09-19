@@ -1,0 +1,84 @@
+# security/policies/container-security-policy.yaml
+apiVersion: v1
+kind: SecurityContextConstraints
+metadata:
+  name: school-erp-scc
+  namespace: school-erp
+  labels:
+    app: school-erp
+    component: security
+spec:
+  allowHostDirVolumePlugin: false
+  allowHostIPC: false
+  allowHostNetwork: false
+  allowHostPID: false
+  allowHostPorts: false
+  allowPrivilegeEscalation: false
+  allowPrivilegedContainer: false
+  allowedCapabilities: []
+  requiredDropCapabilities:
+  - ALL
+  defaultAddCapabilities: []
+  fsGroup:
+    type: MustRunAs
+    ranges:
+    - min: 1001
+      max: 1001
+  runAsUser:
+    type: MustRunAsRange
+    uidRangeMin: 1001
+    uidRangeMax: 1001
+  seLinuxContext:
+    type: MustRunAs
+  supplementalGroups:
+    type: MustRunAs
+    ranges:
+    - min: 1001
+      max: 1001
+  volumes:
+  - configMap
+  - downwardAPI
+  - emptyDir
+  - persistentVolumeClaim
+  - projected
+  - secret
+
+---
+# Pod Security Policy
+apiVersion: policy/v1beta1
+kind: PodSecurityPolicy
+metadata:
+  name: school-erp-psp
+  namespace: school-erp
+spec:
+  privileged: false
+  allowPrivilegeEscalation: false
+  requiredDropCapabilities:
+    - ALL
+  volumes:
+    - 'configMap'
+    - 'emptyDir'
+    - 'projected'
+    - 'secret'
+    - 'downwardAPI'
+    - 'persistentVolumeClaim'
+  hostNetwork: false
+  hostIPC: false
+  hostPID: false
+  runAsUser:
+    rule: 'MustRunAsNonRoot'
+    ranges:
+      - min: 1001
+        max: 1001
+  seLinux:
+    rule: 'RunAsAny'
+  supplementalGroups:
+    rule: 'MustRunAs'
+    ranges:
+      - min: 1001
+        max: 1001
+  fsGroup:
+    rule: 'MustRunAs'
+    ranges:
+      - min: 1001
+        max: 1001

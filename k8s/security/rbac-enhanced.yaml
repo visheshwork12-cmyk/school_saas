@@ -1,0 +1,158 @@
+# k8s/security/rbac-enhanced.yaml
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: school-erp-service-account
+  namespace: school-erp
+  annotations:
+    eks.amazonaws.com/role-arn: arn:aws:iam::${AWS_ACCOUNT_ID}:role/school-erp-app-service-role
+  labels:
+    app: school-erp
+    component: rbac
+
+---
+# Application ClusterRole with minimal permissions
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: school-erp-cluster-role
+  labels:
+    app: school-erp
+    component: rbac
+rules:
+# Minimal cluster-wide permissions
+- apiGroups: [""]
+  resources: ["nodes"]
+  verbs: ["get", "list"]
+- apiGroups: ["metrics.k8s.io"]
+  resources: ["nodes", "pods"]
+  verbs: ["get", "list"]
+
+---
+# Namespace-specific Role with granular permissions
+apiVersion: rbac.authorization.k8s.io/v1
+kind: Role
+metadata:
+  namespace: school-erp
+  name: school-erp-namespace-role
+  labels:
+    app: school-erp
+    component: rbac
+rules:
+# Pod management (read-only mostly)
+- apiGroups: [""]
+  resources: ["pods"]
+  verbs: ["get", "list", "watch"]
+- apiGroups: [""]
+  resources: ["pods/log"]
+  verbs: ["get", "list"]
+
+# Service discovery
+- apiGroups: [""]
+  resources: ["services", "endpoints"]
+  verbs: ["get", "list", "watch"]
+
+# ConfigMaps and Secrets (read-only)
+- apiGroups: [""]
+  resources: ["configmaps"]
+  verbs: ["get", "list", "watch"]
+- apiGroups: [""]
+  resources: ["secrets"]
+  verbs: ["get", "list", "watch"]
+
+# Deployment status (read-only)
+- apiGroups: ["apps"]
+  resources: ["deployments", "replicasets"]
+  verbs: ["get", "list", "watch"]
+
+# Ingress (read-only)
+- apiGroups: ["networking.k8s.io"]
+  resources: ["ingresses"]
+  verbs: ["get", "list", "watch"]
+
+# HPA (read-only)
+- apiGroups: ["autoscaling"]
+  resources: ["horizontalpodautoscalers"]
+  verbs: ["get", "list", "watch"]
+
+---
+# ClusterRoleBinding
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  name: school-erp-cluster-role-binding
+  labels:
+    app: school-erp
+    component: rbac
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: ClusterRole
+  name: school-erp-cluster-role
+subjects:
+- kind: ServiceAccount
+  name: school-erp-service-account
+  namespace: school-erp
+
+---
+# RoleBinding for namespace-specific permissions
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  name: school-erp-namespace-binding
+  namespace: school-erp
+  labels:
+    app: school-erp
+    component: rbac
+subjects:
+- kind: ServiceAccount
+  name: school-erp-service-account
+  namespace: school-erp
+roleRef:
+  kind: Role
+  name: school-erp-namespace-role
+  apiGroup: rbac.authorization.k8s.io
+
+---
+# Separate service account for monitoring
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: school-erp-monitoring-sa
+  namespace: school-erp
+  labels:
+    app: school-erp
+    component: monitoring
+
+---
+# Monitoring Role
+apiVersion: rbac.authorization.k8s.io/v1
+kind: Role
+metadata:
+  namespace: school-erp
+  name: school-erp-monitoring-role
+rules:
+- apiGroups: [""]
+  resources: ["pods", "services", "endpoints"]
+  verbs: ["get", "list", "watch"]
+- apiGroups: ["apps"]
+  resources: ["deployments"]
+  verbs: ["get", "list", "watch"]
+- apiGroups: ["networking.k8s.io"]
+  resources: ["ingresses"]
+  verbs: ["get", "list", "watch"]
+
+---
+# Monitoring RoleBinding
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  name: school-erp-monitoring-binding
+  namespace: school-erp
+subjects:
+- kind: ServiceAccount
+  name: school-erp-monitoring-sa
+  namespace: school-erp
+roleRef:
+  kind: Role
+  name: school-erp-monitoring-role
+  apiGroup: rbac.authorization.k8s.io

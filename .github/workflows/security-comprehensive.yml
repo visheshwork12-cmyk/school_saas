@@ -1,0 +1,320 @@
+# .github/workflows/security-comprehensive.yml
+name: 🔒 Comprehensive Security Pipeline
+
+on:
+  push:
+    branches: [main, develop, staging]
+  pull_request:
+    branches: [main, develop]
+  schedule:
+    - cron: '0 2 * * 0'  # Weekly security scan
+
+env:
+  REGISTRY: ghcr.io
+  IMAGE_NAME: ${{ github.repository }}
+
+jobs:
+  dependency-security:
+    name: 🔍 Dependency Security Scan
+    runs-on: ubuntu-latest
+    steps:
+    - name: Checkout Code
+      uses: actions/checkout@v4
+      with:
+        fetch-depth: 0
+
+    - name: Setup Node.js
+      uses: actions/setup-node@v4
+      with:
+        node-version: '20'
+        cache: 'npm'
+
+    - name: Install Dependencies
+      run: npm ci --audit
+
+    - name: Run npm audit
+      run: |
+        npm audit --audit-level=moderate --json | tee npm-audit-results.json
+        npm audit --audit-level=moderate
+
+    - name: Run Snyk Security Test
+      uses: snyk/actions/node@master
+      env:
+        SNYK_TOKEN: ${{ secrets.SNYK_TOKEN }}
+      with:
+        args: --severity-threshold=medium --json > snyk-results.json
+
+    - name: Upload Snyk Results
+      if: always()
+      uses: actions/upload-artifact@v4
+      with:
+        name: snyk-security-results
+        path: snyk-results.json
+
+  sast-security:
+    name: 🔎 Static Application Security Testing
+    runs-on: ubuntu-latest
+    steps:
+    - name: Checkout Code
+      uses: actions/checkout@v4
+      with:
+        fetch-depth: 0
+
+    - name: Run CodeQL Analysis
+      uses: github/codeql-action/init@v3
+      with:
+        languages: javascript
+        queries: security-and-quality
+
+    - name: Perform CodeQL Analysis
+      uses: github/codeql-action/analyze@v3
+
+    - name: Run ESLint Security Scan
+      run: |
+        npm ci
+        npx eslint src --ext .js,.mjs \
+          --config .eslintrc.security.js \
+          --format json \
+          --output-file eslint-security-results.json
+      continue-on-error: true
+
+    - name: Run Semgrep SAST
+      uses: returntocorp/semgrep-action@v1
+      with:
+        config: >-
+          p/security-audit
+          p/javascript
+          p/nodejs
+          p/express
+        generateSarif: "1"
+
+    - name: Upload SARIF Results
+      if: always()
+      uses: github/codeql-action/upload-sarif@v3
+      with:
+        sarif_file: semgrep.sarif
+
+  container-security:
+    name: 🐳 Container Security Scan
+    runs-on: ubuntu-latest
+    needs: [dependency-security]
+    steps:
+    - name: Checkout Code
+      uses: actions/checkout@v4
+
+    - name: Set up Docker Buildx
+      uses: docker/setup-buildx-action@v3
+
+    - name: Login to Container Registry
+      uses: docker/login-action@v3
+      with:
+        registry: ${{ env.REGISTRY }}
+        username: ${{ github.actor }}
+        password: ${{ secrets.GITHUB_TOKEN }}
+
+    - name: Build Container Image
+      uses: docker/build-push-action@v5
+      with:
+        context: .
+        file: ./docker/Dockerfile.security
+        push: true
+        tags: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:security-scan
+        cache-from: type=gha
+        cache-to: type=gha,mode=max
+
+    - name: Run Trivy Vulnerability Scanner
+      uses: aquasecurity/trivy-action@master
+      with:
+        image-ref: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:security-scan
+        format: 'sarif'
+        output: 'trivy-results.sarif'
+        severity: 'CRITICAL,HIGH,MEDIUM'
+
+    - name: Run Grype Vulnerability Scanner
+      uses: anchore/scan-action@v3
+      with:
+        image: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:security-scan
+        format: sarif
+        output-file: grype-results.sarif
+        severity-cutoff: medium
+
+    - name: Run Docker Bench Security
+      run: |
+        docker run --rm --net host --pid host --userns host --cap-add audit_control \
+          -e DOCKER_CONTENT_TRUST=$DOCKER_CONTENT_TRUST \
+          -v /var/lib:/var/lib:ro \
+          -v /var/run/docker.sock:/var/run/docker.sock:ro \
+          -v /usr/lib/systemd:/usr/lib/systemd:ro \
+          -v /etc:/etc:ro \
+          --label docker_bench_security \
+          docker/docker-bench-security > docker-bench-results.json
+
+    - name: Upload Container Security Results
+      if: always()
+      uses: actions/upload-artifact@v4
+      with:
+        name: container-security-results
+        path: |
+          trivy-results.sarif
+          grype-results.sarif
+          docker-bench-results.json
+
+    - name: Upload Trivy Results to Security Tab
+      if: always()
+      uses: github/codeql-action/upload-sarif@v3
+      with:
+        sarif_file: 'trivy-results.sarif'
+
+  kubernetes-security:
+    name: ⚓ Kubernetes Security Scan
+    runs-on: ubuntu-latest
+    steps:
+    - name: Checkout Code
+      uses: actions/checkout@v4
+
+    - name: Setup kubectl
+      uses: azure/setup-kubectl@v3
+      with:
+        version: 'latest'
+
+    - name: Run Kubesec Security Scan
+      run: |
+        # Install kubesec
+        curl -sSL https://github.com/controlplaneio/kubesec/releases/download/v2.13.0/kubesec_linux_amd64.tar.gz | tar xzf - kubesec
+        
+        # Scan Kubernetes manifests
+        find k8s -name "*.yaml" -exec ./kubesec scan {} \; > kubesec-results.json
+
+    - name: Run Polaris Security Scan
+      run: |
+        # Install Polaris
+        curl -L https://github.com/FairwindsOps/polaris/releases/download/8.5.0/polaris_linux_amd64.tar.gz | tar xz
+        
+        # Scan Kubernetes manifests
+        ./polaris audit --audit-path k8s --format json > polaris-results.json
+
+    - name: Run Checkov Kubernetes Scan
+      uses: bridgecrewio/checkov-action@v12
+      with:
+        directory: k8s/
+        framework: kubernetes
+        output_format: sarif
+        output_file_path: checkov-k8s-results.sarif
+
+    - name: Upload Kubernetes Security Results
+      if: always()
+      uses: actions/upload-artifact@v4
+      with:
+        name: kubernetes-security-results
+        path: |
+          kubesec-results.json
+          polaris-results.json
+          checkov-k8s-results.sarif
+
+  infrastructure-security:
+    name: 🏗️ Infrastructure Security Scan
+    runs-on: ubuntu-latest
+    steps:
+    - name: Checkout Code
+      uses: actions/checkout@v4
+
+    - name: Setup Terraform
+      uses: hashicorp/setup-terraform@v3
+      with:
+        terraform_version: 1.6.0
+
+    - name: Run Checkov IaC Scan
+      uses: bridgecrewio/checkov-action@v12
+      with:
+        directory: config/infrastructure/terraform/
+        framework: terraform
+        output_format: sarif
+        output_file_path: checkov-iac-results.sarif
+
+    - name: Run TFSec Security Scan
+      uses: aquasecurity/tfsec-action@v1.0.3
+      with:
+        working_directory: config/infrastructure/terraform/
+        format: sarif
+        sarif_file: tfsec-results.sarif
+
+    - name: Run Terrascan IaC Scan
+      run: |
+        # Install Terrascan
+        curl -L "$(curl -s https://api.github.com/repos/tenable/terrascan/releases/latest | grep -o -E "https://.+?_Linux_x86_64.tar.gz")" > terrascan.tar.gz
+        tar -xf terrascan.tar.gz
+        
+        # Scan Terraform files
+        ./terrascan scan -t terraform -d config/infrastructure/terraform/ -o sarif > terrascan-results.sarif
+
+    - name: Upload IaC Security Results
+      if: always()
+      uses: actions/upload-artifact@v4
+      with:
+        name: iac-security-results
+        path: |
+          checkov-iac-results.sarif
+          tfsec-results.sarif
+          terrascan-results.sarif
+
+  security-report:
+    name: 📊 Security Report Generation
+    runs-on: ubuntu-latest
+    needs: [dependency-security, sast-security, container-security, kubernetes-security, infrastructure-security]
+    if: always()
+    steps:
+    - name: Download All Artifacts
+      uses: actions/download-artifact@v4
+
+    - name: Generate Security Report
+      run: |
+        cat > security-report.md << 'EOF'
+        # 🔒 Security Scan Report
+        
+        **Date:** $(date)
+        **Repository:** ${{ github.repository }}
+        **Branch:** ${{ github.ref_name }}
+        **Commit:** ${{ github.sha }}
+        
+        ## Summary
+        
+        | Scan Type | Status | Critical | High | Medium | Low |
+        |-----------|--------|----------|------|--------|-----|
+        | Dependencies | ${{ needs.dependency-security.result }} | - | - | - | - |
+        | SAST | ${{ needs.sast-security.result }} | - | - | - | - |
+        | Container | ${{ needs.container-security.result }} | - | - | - | - |
+        | Kubernetes | ${{ needs.kubernetes-security.result }} | - | - | - | - |
+        | Infrastructure | ${{ needs.infrastructure-security.result }} | - | - | - | - |
+        
+        ## Recommendations
+        
+        1. Review and address all CRITICAL and HIGH severity findings
+        2. Update dependencies with known vulnerabilities
+        3. Implement additional security controls as needed
+        4. Schedule regular security reviews
+        
+        ---
+        *Generated by GitHub Actions Security Pipeline*
+        EOF
+
+    - name: Upload Security Report
+      uses: actions/upload-artifact@v4
+      with:
+        name: security-report
+        path: security-report.md
+        retention-days: 30
+
+    - name: Comment on PR
+      if: github.event_name == 'pull_request'
+      uses: actions/github-script@v7
+      with:
+        script: |
+          const fs = require('fs');
+          const report = fs.readFileSync('security-report.md', 'utf8');
+          
+          github.rest.issues.createComment({
+            issue_number: context.issue.number,
+            owner: context.repo.owner,
+            repo: context.repo.repo,
+            body: '## 🔒 Security Scan Results\n\n' + report
+          });

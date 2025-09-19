@@ -1,0 +1,27 @@
+# Dockerfile.database-migration
+# Multi-stage build for database migrations
+
+# Stage 1: Migration tools and dependencies
+FROM node:18-alpine AS migration-base
+WORKDIR /app
+RUN apk add --no-cache postgresql-client mongodb-tools
+COPY package*.json ./
+RUN npm ci --only=production
+
+# Stage 2: Migration scripts and validation
+FROM migration-base AS migration-build
+COPY migrations/ ./migrations/
+COPY scripts/ ./scripts/
+RUN npm run validate:migrations
+
+# Stage 3: Production migration runner
+FROM migration-base AS migration-runner
+COPY --from=migration-build /app/migrations ./migrations
+COPY --from=migration-build /app/scripts ./scripts
+ENTRYPOINT ["node", "scripts/run-migrations.js"]
+
+# Stage 4: Rollback runner
+FROM migration-base AS rollback-runner
+COPY --from=migration-build /app/migrations ./migrations
+COPY --from=migration-build /app/scripts ./scripts
+ENTRYPOINT ["node", "scripts/rollback-migrations.js"]

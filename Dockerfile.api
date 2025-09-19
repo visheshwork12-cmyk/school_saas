@@ -1,0 +1,44 @@
+# Dockerfile.api - School ERP API Server
+# Multi-stage build for Node.js API server with optimized layers
+
+# Stage 1: Base image with common dependencies
+FROM node:18-alpine AS base
+RUN apk add --no-cache dumb-init
+WORKDIR /app
+COPY package*.json ./
+RUN npm ci --only=production && npm cache clean --force
+
+# Stage 2: Development dependencies and build tools
+FROM node:18-alpine AS build
+WORKDIR /app
+COPY package*.json ./
+RUN npm ci --include=dev
+COPY . .
+RUN npm run build && npm run test
+
+# Stage 3: Security scanning and vulnerability check
+FROM base AS security-scan
+COPY --from=build /app/dist ./dist
+RUN npm audit --audit-level=moderate
+RUN npx retire --path ./
+
+# Stage 4: Production runtime
+FROM node:18-alpine AS production
+RUN apk add --no-cache dumb-init \
+    && addgroup -g 1001 -S nodejs \
+    && adduser -S nodejs -u 1001
+USER nodejs
+WORKDIR /app
+COPY --from=base --chown=nodejs:nodejs /app/node_modules ./node_modules
+COPY --from=build --chown=nodejs:nodejs /app/dist ./dist
+COPY --chown=nodejs:nodejs package*.json ./
+EXPOSE 3000
+ENTRYPOINT ["dumb-init", "--"]
+CMD ["node", "dist/server.js"]
+
+# Stage 5: Development environment
+FROM build AS development
+WORKDIR /app
+EXPOSE 3000 9229
+ENV NODE_ENV=development
+CMD ["npm", "run", "dev"]

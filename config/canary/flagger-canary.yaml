@@ -1,0 +1,179 @@
+# config/deployment/canary/flagger-canary.yaml
+apiVersion: flagger.app/v1beta1
+kind: Canary
+metadata:
+  name: school-erp-api-canary
+  namespace: default
+spec:
+  # Deployment reference
+  targetRef:
+    apiVersion: apps/v1
+    kind: Deployment
+    name: school-erp-api
+  # HPA reference (optional)
+  autoscalerRef:
+    apiVersion: autoscaling/v2beta2
+    kind: HorizontalPodAutoscaler
+    name: school-erp-api-hpa
+  # Service configuration
+  service:
+    # Service port number
+    port: 80
+    # Container port number or name
+    targetPort: 3000
+    # Istio gateways (optional)
+    gateways:
+    - school-erp-gateway
+    # Istio virtual service host names (optional)
+    hosts:
+    - api.school-erp.com
+    # HTTP traffic routing configuration
+    trafficPolicy:
+      tls:
+        # TLS mode
+        mode: ISTIO_MUTUAL
+    # HTTP match conditions (optional)
+    match:
+      - headers:
+          user-agent:
+            regex: ".*Firefox.*"
+      - headers:
+          cookie:
+            regex: "^(.*?;)?(canary=true)(;.*)?$"
+  # Canary analysis configuration
+  analysis:
+    # Schedule interval (default 60s)
+    interval: 30s
+    # Max number of failed metric checks before rollback
+    threshold: 5
+    # Max traffic percentage routed to canary
+    maxWeight: 50
+    # Canary increment step
+    stepWeight: 5
+    # Promote canary if no issues after this many iterations
+    iterations: 10
+    # Prometheus metrics
+    metrics:
+    - name: request-success-rate
+      # Minimum req success rate (non 5xx responses)
+      thresholdRange:
+        min: 99
+      interval: 1m
+    - name: request-duration
+      # Maximum req duration P99
+      thresholdRange:
+        max: 500
+      interval: 1m
+    - name: error-rate
+      # Maximum error rate percentage
+      thresholdRange:
+        max: 1
+      interval: 1m
+    # Custom metrics
+    - name: business-metrics
+      templateRef:
+        name: business-success-rate
+      thresholdRange:
+        min: 95
+      interval: 1m
+    # Webhooks for external validation
+    webhooks:
+      - name: acceptance-test
+        type: pre-rollout
+        url: http://flagger-loadtester.test/
+        timeout: 30s
+        metadata:
+          type: bash
+          cmd: "curl -sd 'test' http://school-erp-api-canary.default/api/health"
+      - name: load-test
+        type: rollout
+        url: http://flagger-loadtester.test/
+        metadata:
+          cmd: "hey -z 1m -q 10 -c 2 http://school-erp-api-canary.default/"
+---
+# Custom Metric Template
+apiVersion: flagger.app/v1beta1
+kind: MetricTemplate
+metadata:
+  name: business-success-rate
+  namespace: default
+spec:
+  provider:
+    type: prometheus
+    address: http://prometheus:9090
+  query: |
+    sum(
+      rate(
+        http_requests_total{
+          namespace="{{ namespace }}",
+          pod=~"{{ target }}-[0-9a-zA-Z]+(-[0-9a-zA-Z]+)",
+          status!~"5.*"
+        }[{{ interval }}]
+      )
+    ) 
+    / 
+    sum(
+      rate(
+        http_requests_total{
+          namespace="{{ namespace }}",
+          pod=~"{{ target }}-[0-9a-zA-Z]+(-[0-9a-zA-Z]+)"
+        }[{{ interval }}]
+      )
+    ) * 100
+---
+# Istio Gateway
+apiVersion: networking.istio.io/v1alpha3
+kind: Gateway
+metadata:
+  name: school-erp-gateway
+  namespace: default
+spec:
+  selector:
+    istio: ingressgateway
+  servers:
+  - port:
+      number: 80
+      name: http
+      protocol: HTTP
+    hosts:
+    - api.school-erp.com
+    tls:
+      httpsRedirect: true
+  - port:
+      number: 443
+      name: https
+      protocol: HTTPS
+    tls:
+      mode: SIMPLE
+      credentialName: school-erp-tls
+    hosts:
+    - api.school-erp.com
+---
+# Alert Manager for Canary Notifications
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: canary-alerts
+  namespace: default
+data:
+  canary.yaml: |
+    groups:
+    - name: canary
+      rules:
+      - alert: CanaryDeploymentFailed
+        expr: flagger_canary_status{name="school-erp-api-canary"} == 0
+        for: 1m
+        labels:
+          severity: critical
+        annotations:
+          summary: "Canary deployment failed for school-erp-api"
+          description: "Canary deployment for school-erp-api has failed and was rolled back"
+      
+      - alert: CanaryDeploymentStuck
+        expr: flagger_canary_duration_total{name="school-erp-api-canary"} > 1800
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: "Canary deployment is taking too long"
+          description: "Canary deployment for school-erp-api is stuck and taking more than 30 minutes"

@@ -1,0 +1,68 @@
+# docker/Dockerfile.security - Production-ready secure container
+FROM node:20.15.0-alpine3.19 AS security-base
+
+# Security: Create non-root user first
+RUN addgroup -g 1001 -S nodejs && \
+    adduser -S nextjs -u 1001 -G nodejs
+
+# Security: Install security updates and minimal packages
+RUN apk update && \
+    apk upgrade && \
+    apk add --no-cache \
+    dumb-init \
+    curl \
+    ca-certificates && \
+    rm -rf /var/cache/apk/*
+
+# Security: Set secure work directory
+WORKDIR /app
+
+# Security: Copy package files first (better layer caching)
+COPY --chown=nextjs:nodejs package*.json ./
+
+# Security: Install dependencies with security flags
+RUN npm ci --only=production --no-audit --no-fund && \
+    npm cache clean --force
+
+# Security: Copy application files
+COPY --chown=nextjs:nodejs . .
+
+# Security: Remove sensitive files
+RUN rm -rf \
+    .git \
+    .env.example \
+    .env.local \
+    tests \
+    docs \
+    *.md \
+    .github
+
+# Security: Set file permissions
+RUN chmod -R 755 /app && \
+    chmod -R 644 /app/src
+
+# Security: Create logs directory with proper permissions
+RUN mkdir -p /app/logs && \
+    chown -R nextjs:nodejs /app/logs
+
+# Security: Switch to non-root user
+USER nextjs
+
+# Security: Set secure environment variables
+ENV NODE_ENV=production \
+    NPM_CONFIG_UPDATE_NOTIFIER=false \
+    NPM_CONFIG_FUND=false \
+    NPM_CONFIG_AUDIT=false
+
+# Security: Health check
+HEALTHCHECK --interval=30s --timeout=10s --start-period=60s --retries=3 \
+    CMD curl -f http://localhost:3000/health || exit 1
+
+# Security: Use dumb-init for proper signal handling
+ENTRYPOINT ["dumb-init", "--"]
+
+# Security: Expose port
+EXPOSE 3000
+
+# Security: Start with restricted capabilities
+CMD ["node", "src/server.js"]

@@ -1,0 +1,230 @@
+# config/deployment/blue-green/blue-green-deployment.yaml
+# Blue Environment
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: school-erp-api-blue
+  namespace: default
+  labels:
+    app: school-erp-api
+    version: blue
+    deployment-strategy: blue-green
+spec:
+  replicas: 3
+  selector:
+    matchLabels:
+      app: school-erp-api
+      version: blue
+  template:
+    metadata:
+      labels:
+        app: school-erp-api
+        version: blue
+        deployment-strategy: blue-green
+    spec:
+      containers:
+      - name: api-server
+        image: school-erp/api:blue
+        ports:
+        - containerPort: 3000
+        env:
+        - name: NODE_ENV
+          value: "production"
+        - name: DEPLOYMENT_VERSION
+          value: "blue"
+        - name: DATABASE_URL
+          valueFrom:
+            secretKeyRef:
+              name: db-credentials
+              key: url
+        resources:
+          requests:
+            memory: "256Mi"
+            cpu: "200m"
+          limits:
+            memory: "512Mi"
+            cpu: "500m"
+        livenessProbe:
+          httpGet:
+            path: /health
+            port: 3000
+          initialDelaySeconds: 30
+          periodSeconds: 10
+        readinessProbe:
+          httpGet:
+            path: /ready
+            port: 3000
+          initialDelaySeconds: 5
+          periodSeconds: 5
+          successThreshold: 1
+          failureThreshold: 3
+      imagePullSecrets:
+      - name: registry-credentials
+---
+# Green Environment
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: school-erp-api-green
+  namespace: default
+  labels:
+    app: school-erp-api
+    version: green
+    deployment-strategy: blue-green
+spec:
+  replicas: 0  # Initially scaled down
+  selector:
+    matchLabels:
+      app: school-erp-api
+      version: green
+  template:
+    metadata:
+      labels:
+        app: school-erp-api
+        version: green
+        deployment-strategy: blue-green
+    spec:
+      containers:
+      - name: api-server
+        image: school-erp/api:green
+        ports:
+        - containerPort: 3000
+        env:
+        - name: NODE_ENV
+          value: "production"
+        - name: DEPLOYMENT_VERSION
+          value: "green"
+        - name: DATABASE_URL
+          valueFrom:
+            secretKeyRef:
+              name: db-credentials
+              key: url
+        resources:
+          requests:
+            memory: "256Mi"
+            cpu: "200m"
+          limits:
+            memory: "512Mi"
+            cpu: "500m"
+        livenessProbe:
+          httpGet:
+            path: /health
+            port: 3000
+          initialDelaySeconds: 30
+          periodSeconds: 10
+        readinessProbe:
+          httpGet:
+            path: /ready
+            port: 3000
+          initialDelaySeconds: 5
+          periodSeconds: 5
+          successThreshold: 1
+          failureThreshold: 3
+---
+# Production Service (Traffic Router)
+apiVersion: v1
+kind: Service
+metadata:
+  name: school-erp-api-service
+  namespace: default
+  labels:
+    app: school-erp-api
+    service-type: production
+spec:
+  type: ClusterIP
+  selector:
+    app: school-erp-api
+    version: blue  # Initially points to blue
+  ports:
+  - name: http
+    port: 80
+    targetPort: 3000
+    protocol: TCP
+---
+# Blue Service
+apiVersion: v1
+kind: Service
+metadata:
+  name: school-erp-api-blue-service
+  namespace: default
+  labels:
+    app: school-erp-api
+    version: blue
+spec:
+  type: ClusterIP
+  selector:
+    app: school-erp-api
+    version: blue
+  ports:
+  - name: http
+    port: 80
+    targetPort: 3000
+---
+# Green Service  
+apiVersion: v1
+kind: Service
+metadata:
+  name: school-erp-api-green-service
+  namespace: default
+  labels:
+    app: school-erp-api
+    version: green
+spec:
+  type: ClusterIP
+  selector:
+    app: school-erp-api
+    version: green
+  ports:
+  - name: http
+    port: 80
+    targetPort: 3000
+---
+# Ingress with Traffic Switching Capability
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: school-erp-api-ingress
+  namespace: default
+  annotations:
+    nginx.ingress.kubernetes.io/rewrite-target: /
+    nginx.ingress.kubernetes.io/ssl-redirect: "true"
+    nginx.ingress.kubernetes.io/proxy-body-size: "10m"
+    # Blue-Green switching annotation
+    nginx.ingress.kubernetes.io/service-upstream: "true"
+spec:
+  tls:
+  - hosts:
+    - api.school-erp.com
+    secretName: school-erp-tls
+  rules:
+  - host: api.school-erp.com
+    http:
+      paths:
+      - path: /
+        pathType: Prefix
+        backend:
+          service:
+            name: school-erp-api-service
+            port:
+              number: 80
+---
+# Test Ingress for Green Environment
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: school-erp-api-green-ingress
+  namespace: default
+  annotations:
+    nginx.ingress.kubernetes.io/rewrite-target: /
+spec:
+  rules:
+  - host: green.school-erp.com
+    http:
+      paths:
+      - path: /
+        pathType: Prefix
+        backend:
+          service:
+            name: school-erp-api-green-service
+            port:
+              number: 80

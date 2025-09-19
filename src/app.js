@@ -15,6 +15,11 @@ import HTTP_STATUS from "#constants/http-status.js";
 import healthRoutes from '#routes/health.routes.js';
 import { requestMetricsMiddleware } from '#shared/middleware/monitoring/request-metrics.middleware.js';
 import { cloudWatchService } from '#core/monitoring/services/cloudwatch.service.js';
+import { sqlInjectionMiddleware } from "#infrastructure/security/sql-injection-protection.js";
+import { noSQLInjectionMiddleware } from "#infrastructure/security/nosql-injection-protection.js";
+import { commandInjectionMiddleware } from "#infrastructure/security/command-injection-protection.js";
+import { hppProtectionMiddleware } from "#infrastructure/security/hpp-protection.js";
+import { enhancedFileValidationMiddleware } from "#infrastructure/security/enhanced-file-validation.service.js";
 
 // 🔧 SENTRY INITIALIZATION - Enhanced with better error handling
 let Sentry = null;
@@ -936,7 +941,11 @@ const createApp = async () => {
     await configureSentryMiddleware(app);    // 1. Sentry request handler (if available)
     app.use(requestMetricsMiddleware);
     app.use(passport.initialize());          // 2. Passport
-    app.use(requestId);                      // 3. Request ID
+    app.use(requestId);
+    app.use(hppProtectionMiddleware({ strict: false }));
+    app.use(sqlInjectionMiddleware());
+    app.use(noSQLInjectionMiddleware());
+    app.use(commandInjectionMiddleware());                   // 3. Request ID
 
     configureSecurity(app, deploymentInfo);   // 4. Security (Helmet)
     configureCors(app, deploymentInfo);       // 5. CORS

@@ -1,0 +1,242 @@
+# config/infrastructure/kubernetes/resource-limits.yaml
+apiVersion: v1
+kind: LimitRange
+metadata:
+  name: school-erp-limits
+  namespace: default
+spec:
+  limits:
+  # Container limits
+  - type: Container
+    default:
+      cpu: "500m"
+      memory: "512Mi"
+    defaultRequest:
+      cpu: "100m"
+      memory: "128Mi"
+    max:
+      cpu: "2"
+      memory: "2Gi"
+    min:
+      cpu: "10m"
+      memory: "32Mi"
+    maxLimitRequestRatio:
+      cpu: "10"
+      memory: "8"
+  
+  # Pod limits
+  - type: Pod
+    max:
+      cpu: "4"
+      memory: "4Gi"
+    min:
+      cpu: "50m"
+      memory: "64Mi"
+  
+  # PVC limits
+  - type: PersistentVolumeClaim
+    max:
+      storage: "50Gi"
+    min:
+      storage: "1Gi"
+
+---
+apiVersion: v1
+kind: ResourceQuota
+metadata:
+  name: school-erp-quota
+  namespace: default
+spec:
+  hard:
+    # Compute resources
+    requests.cpu: "10"
+    requests.memory: "20Gi"
+    limits.cpu: "20"
+    limits.memory: "40Gi"
+    
+    # Storage resources
+    requests.storage: "100Gi"
+    persistentvolumeclaims: "10"
+    
+    # Object counts
+    pods: "50"
+    services: "10"
+    secrets: "20"
+    configmaps: "20"
+    
+    # Resource counts by type
+    count/deployments.apps: "20"
+    count/jobs.batch: "10"
+    count/cronjobs.batch: "5"
+
+---
+# School ERP API Deployment with optimized resource limits
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: school-erp-api
+  labels:
+    app: school-erp-api
+    tier: backend
+spec:
+  replicas: 3
+  selector:
+    matchLabels:
+      app: school-erp-api
+  template:
+    metadata:
+      labels:
+        app: school-erp-api
+        tier: backend
+    spec:
+      containers:
+      - name: api-server
+        image: school-erp/api:latest
+        ports:
+        - containerPort: 3000
+        env:
+        - name: NODE_ENV
+          value: "production"
+        - name: MEMORY_LIMIT
+          valueFrom:
+            resourceFieldRef:
+              resource: limits.memory
+        - name: CPU_LIMIT
+          valueFrom:
+            resourceFieldRef:
+              resource: limits.cpu
+        resources:
+          requests:
+            memory: "256Mi"
+            cpu: "200m"
+            ephemeral-storage: "1Gi"
+          limits:
+            memory: "512Mi"
+            cpu: "500m"
+            ephemeral-storage: "2Gi"
+        livenessProbe:
+          httpGet:
+            path: /health
+            port: 3000
+          initialDelaySeconds: 30
+          periodSeconds: 10
+          timeoutSeconds: 5
+          failureThreshold: 3
+        readinessProbe:
+          httpGet:
+            path: /ready
+            port: 3000
+          initialDelaySeconds: 5
+          periodSeconds: 5
+          timeoutSeconds: 3
+          failureThreshold: 3
+        volumeMounts:
+        - name: app-logs
+          mountPath: /app/logs
+        - name: tmp
+          mountPath: /tmp
+      
+      # Sidecar container for log shipping
+      - name: log-shipper
+        image: fluent/fluent-bit:latest
+        resources:
+          requests:
+            memory: "64Mi"
+            cpu: "50m"
+          limits:
+            memory: "128Mi"
+            cpu: "100m"
+        volumeMounts:
+        - name: app-logs
+          mountPath: /app/logs
+          readOnly: true
+        - name: fluent-bit-config
+          mountPath: /fluent-bit/etc/
+      
+      volumes:
+      - name: app-logs
+        emptyDir: {}
+      - name: tmp
+        emptyDir: {}
+      - name: fluent-bit-config
+        configMap:
+          name: fluent-bit-config
+      
+      # Resource optimization settings
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 1000
+        fsGroup: 2000
+      
+      # Pod-level resource constraints
+      terminationGracePeriodSeconds: 30
+      
+      # Node selection and affinity
+      nodeSelector:
+        instance-type: "optimized"
+      
+      affinity:
+        podAntiAffinity:
+          preferredDuringSchedulingIgnoredDuringExecution:
+          - weight: 100
+            podAffinityTerm:
+              labelSelector:
+                matchExpressions:
+                - key: app
+                  operator: In
+                  values:
+                  - school-erp-api
+              topologyKey: kubernetes.io/hostname
+      
+      tolerations:
+      - key: "high-memory"
+        operator: "Equal"
+        value: "true"
+        effect: "NoSchedule"
+
+---
+# Priority Class for critical workloads
+apiVersion: scheduling.k8s.io/v1
+kind: PriorityClass
+metadata:
+  name: school-erp-critical
+value: 1000
+globalDefault: false
+description: "Priority class for critical School ERP components"
+
+---
+# Network Policy for resource isolation
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: school-erp-network-policy
+spec:
+  podSelector:
+    matchLabels:
+      app: school-erp-api
+  policyTypes:
+  - Ingress
+  - Egress
+  ingress:
+  - from:
+    - podSelector:
+        matchLabels:
+          app: nginx-load-balancer
+    ports:
+    - protocol: TCP
+      port: 3000
+  egress:
+  - to:
+    - podSelector:
+        matchLabels:
+          app: mongodb
+    ports:
+    - protocol: TCP
+      port: 27017
+  - to:
+    - podSelector:
+        matchLabels:
+          app: redis
+    ports:
+    - protocol: TCP
+      port: 6379

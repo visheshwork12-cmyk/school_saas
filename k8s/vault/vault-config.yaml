@@ -1,0 +1,101 @@
+# k8s/vault/vault-config.yaml
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: vault-config
+  namespace: school-erp
+  labels:
+    app: vault
+    component: config
+data:
+  vault.hcl: |
+    ui = true
+    listener "tcp" {
+      address = "0.0.0.0:8200"
+      tls_disable = true
+    }
+    storage "consul" {
+      address = "consul:8500"
+      path = "vault/"
+    }
+    api_addr = "http://vault:8200"
+    cluster_addr = "https://vault:8201"
+
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: vault
+  namespace: school-erp
+  labels:
+    app: vault
+    component: server
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: vault
+      component: server
+  template:
+    metadata:
+      labels:
+        app: vault
+        component: server
+    spec:
+      serviceAccountName: vault-service-account
+      containers:
+      - name: vault
+        image: hashicorp/vault:1.15.2
+        ports:
+        - containerPort: 8200
+          name: vault-port
+        - containerPort: 8201
+          name: cluster-port
+        env:
+        - name: VAULT_ADDR
+          value: "http://localhost:8200"
+        - name: VAULT_API_ADDR
+          value: "http://vault:8200"
+        - name: VAULT_CLUSTER_ADDR
+          value: "https://vault:8201"
+        volumeMounts:
+        - name: vault-config
+          mountPath: /vault/config/vault.hcl
+          subPath: vault.hcl
+        command:
+        - vault
+        - server
+        - -config=/vault/config/vault.hcl
+        securityContext:
+          runAsUser: 100
+          runAsGroup: 1000
+          allowPrivilegeEscalation: false
+        resources:
+          requests:
+            memory: "256Mi"
+            cpu: "250m"
+          limits:
+            memory: "512Mi"
+            cpu: "500m"
+      volumes:
+      - name: vault-config
+        configMap:
+          name: vault-config
+
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: vault
+  namespace: school-erp
+  labels:
+    app: vault
+    component: server
+spec:
+  selector:
+    app: vault
+    component: server
+  ports:
+  - port: 8200
+    targetPort: 8200
+    name: vault

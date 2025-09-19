@@ -1,0 +1,224 @@
+# config/infrastructure/kubernetes/hpa-vpa-config.yaml
+# Advanced HPA Configuration
+apiVersion: autoscaling/v2
+kind: HorizontalPodAutoscaler
+metadata:
+  name: school-erp-api-hpa
+  namespace: default
+spec:
+  scaleTargetRef:
+    apiVersion: apps/v1
+    kind: Deployment
+    name: school-erp-api
+  minReplicas: 2
+  maxReplicas: 50
+  metrics:
+  # CPU utilization metric
+  - type: Resource
+    resource:
+      name: cpu
+      target:
+        type: Utilization
+        averageUtilization: 70
+  # Memory utilization metric
+  - type: Resource
+    resource:
+      name: memory
+      target:
+        type: Utilization
+        averageUtilization: 80
+  # Custom metric: HTTP requests per second
+  - type: Pods
+    pods:
+      metric:
+        name: http_requests_per_second
+      target:
+        type: AverageValue
+        averageValue: "100"
+  # External metric: Active tenant count
+  - type: External
+    external:
+      metric:
+        name: active_tenant_count
+        selector:
+          matchLabels:
+            service: school-erp-api
+      target:
+        type: AverageValue
+        averageValue: "10"
+  
+  # Advanced behavior configuration
+  behavior:
+    scaleUp:
+      stabilizationWindowSeconds: 60
+      policies:
+      - type: Percent
+        value: 50
+        periodSeconds: 60
+      - type: Pods
+        value: 2
+        periodSeconds: 60
+      selectPolicy: Min
+    scaleDown:
+      stabilizationWindowSeconds: 300
+      policies:
+      - type: Percent
+        value: 10
+        periodSeconds: 60
+      - type: Pods
+        value: 1
+        periodSeconds: 60
+      selectPolicy: Max
+
+---
+# VPA Configuration
+apiVersion: autoscaling.k8s.io/v1
+kind: VerticalPodAutoscaler
+metadata:
+  name: school-erp-api-vpa
+  namespace: default
+spec:
+  targetRef:
+    apiVersion: apps/v1
+    kind: Deployment
+    name: school-erp-api
+  updatePolicy:
+    updateMode: "Auto"  # Can be "Off", "Initial", or "Auto"
+  resourcePolicy:
+    containerPolicies:
+    - containerName: api-server
+      maxAllowed:
+        cpu: "2"
+        memory: "4Gi"
+      minAllowed:
+        cpu: "100m"
+        memory: "128Mi"
+      controlledResources: ["cpu", "memory"]
+      controlledValues: RequestsAndLimits
+    - containerName: log-shipper
+      maxAllowed:
+        cpu: "200m"
+        memory: "256Mi"
+      minAllowed:
+        cpu: "50m"
+        memory: "64Mi"
+      controlledResources: ["cpu", "memory"]
+
+---
+# KEDA ScaledObject for event-driven autoscaling
+apiVersion: keda.sh/v1alpha1
+kind: ScaledObject
+metadata:
+  name: school-erp-api-scaledobject
+  namespace: default
+spec:
+  scaleTargetRef:
+    name: school-erp-api
+  pollingInterval: 15
+  cooldownPeriod: 300
+  idleReplicaCount: 2
+  minReplicaCount: 2
+  maxReplicaCount: 100
+  triggers:
+  # Redis queue length trigger
+  - type: redis
+    metadata:
+      address: redis-service:6379
+      listName: background_jobs
+      listLength: "10"
+  # Prometheus metric trigger
+  - type: prometheus
+    metadata:
+      serverAddress: http://prometheus:9090
+      metricName: http_requests_per_second
+      threshold: '100'
+      query: rate(http_requests_total[1m])
+  # MongoDB trigger
+  - type: mongodb
+    metadata:
+      connectionString: "mongodb://mongodb:27017/school_erp"
+      collection: "audit_logs"
+      query: '{"processed": false}'
+      queryValue: "50"
+
+---
+# Custom Metrics API Configuration
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: custom-metrics-config
+  namespace: kube-system
+data:
+  config.yaml: |
+    rules:
+    - seriesQuery: 'http_requests_per_second{namespace!="",pod!=""}'
+      resources:
+        overrides:
+          namespace: {resource: "namespace"}
+          pod: {resource: "pod"}
+      name:
+        matches: "^http_requests_per_second"
+        as: "http_requests_per_second"
+      metricsQuery: 'avg_over_time(<<.Series>>{<<.LabelMatchers>>}[2m])'
+    - seriesQuery: 'active_tenant_count'
+      name:
+        matches: "^active_tenant_count"
+        as: "active_tenant_count"
+      metricsQuery: 'max(<<.Series>>{<<.LabelMatchers>>})'
+
+---
+# Cluster Autoscaler Configuration
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: cluster-autoscaler
+  namespace: kube-system
+  labels:
+    app: cluster-autoscaler
+spec:
+  selector:
+    matchLabels:
+      app: cluster-autoscaler
+  template:
+    metadata:
+      labels:
+        app: cluster-autoscaler
+    spec:
+      serviceAccountName: cluster-autoscaler
+      containers:
+      - image: k8s.gcr.io/autoscaling/cluster-autoscaler:v1.21.0
+        name: cluster-autoscaler
+        resources:
+          limits:
+            cpu: 100m
+            memory: 300Mi
+          requests:
+            cpu: 100m
+            memory: 300Mi
+        command:
+        - ./cluster-autoscaler
+        - --v=4
+        - --stderrthreshold=info
+        - --cloud-provider=aws
+        - --skip-nodes-with-local-storage=false
+        - --expander=least-waste
+        - --node-group-auto-discovery=asg:tag=k8s.io/cluster-autoscaler/enabled,k8s.io/cluster-autoscaler/school-erp-cluster
+        - --balance-similar-node-groups
+        - --scale-down-enabled=true
+        - --scale-down-delay-after-add=10m
+        - --scale-down-unneeded-time=10m
+        - --scale-down-utilization-threshold=0.5
+        - --skip-nodes-with-system-pods=false
+        env:
+        - name: AWS_REGION
+          value: us-west-2
+        volumeMounts:
+        - name: ssl-certs
+          mountPath: /etc/ssl/certs/ca-certificates.crt
+          readOnly: true
+      volumes:
+      - name: ssl-certs
+        hostPath:
+          path: "/etc/ssl/certs/ca-bundle.crt"
+      nodeSelector:
+        kubernetes.io/role: master
